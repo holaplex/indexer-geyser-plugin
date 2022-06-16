@@ -39,7 +39,7 @@ solana-metrics = "1.10.25"
 spl-token = "3.3.0"
 
 [dependencies.tokio]
-version = "1.14.1"
+version = "1.18.2"
 features = [
   "fs",
   "net",
