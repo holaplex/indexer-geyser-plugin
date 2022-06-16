@@ -31,6 +31,7 @@ rand = "0.8.5"
 rmp-serde = "1.0.0-beta.2"
 serde = { version = "1.0.133", features = ["derive"] }
 serde_json = { version = "1.0.79", optional = true }
-solana-program = { version = "1.10.25", optional = true }
+# TODO: tighten this bound once more things support 1.10
+solana-program = { version = ">=1.9", optional = true }
 strum = { version = "0.23.0", features = ["derive"] }
 thiserror = "1.0.30"
