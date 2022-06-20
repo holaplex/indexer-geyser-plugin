@@ -13,7 +13,11 @@ pub struct AccountSelector {
 
 impl AccountSelector {
     pub fn from_config(config: Accounts) -> Result<Self> {
-        let Accounts { owners, accounts, startup } = config;
+        let Accounts {
+            owners,
+            accounts,
+            startup,
+        } = config;
 
         let owners = owners
             .into_iter()
@@ -27,7 +31,11 @@ impl AccountSelector {
             .collect::<Result<_, _>>()
             .context("Failed to parse account keys")?;
 
-        Ok(Self { owners, accounts, startup })
+        Ok(Self {
+            owners,
+            accounts,
+            startup,
+        })
     }
 
     #[inline]
@@ -37,8 +45,8 @@ impl AccountSelector {
 
     #[inline]
     pub fn is_selected(&self, acct: &ReplicaAccountInfo, is_startup: bool) -> bool {
-        self.startup.map_or(true, |s| is_startup == s) && 
-            ( self.owners.contains(acct.owner) || self.accounts.contains(acct.pubkey) )
+        self.startup.map_or(true, |s| is_startup == s)
+            && (self.owners.contains(acct.owner) || self.accounts.contains(acct.pubkey))
     }
 }
 
