@@ -48,7 +48,11 @@ pub struct Metrics {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Accounts {
+    #[serde(default)]
     pub owners: HashSet<String>,
+
+    #[serde(default)]
+    pub accounts: HashSet<String>,
 
     /// Filter for changing how to interpret the `is_startup` flag.
     ///

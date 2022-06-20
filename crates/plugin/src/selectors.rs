@@ -7,12 +7,13 @@ use crate::{interface::ReplicaAccountInfo, prelude::*};
 #[derive(Debug)]
 pub struct AccountSelector {
     owners: HashSet<[u8; 32]>,
+    accounts: HashSet<[u8; 32]>,
     startup: Option<bool>,
 }
 
 impl AccountSelector {
     pub fn from_config(config: Accounts) -> Result<Self> {
-        let Accounts { owners, startup } = config;
+        let Accounts { owners, accounts, startup } = config;
 
         let owners = owners
             .into_iter()
@@ -20,7 +21,13 @@ impl AccountSelector {
             .collect::<Result<_, _>>()
             .context("Failed to parse account owner keys")?;
 
-        Ok(Self { owners, startup })
+        let accounts = accounts
+            .into_iter()
+            .map(|s| s.parse().map(Pubkey::to_bytes))
+            .collect::<Result<_, _>>()
+            .context("Failed to parse account keys")?;
+
+        Ok(Self { owners, accounts, startup })
     }
 
     #[inline]
@@ -30,7 +37,8 @@ impl AccountSelector {
 
     #[inline]
     pub fn is_selected(&self, acct: &ReplicaAccountInfo, is_startup: bool) -> bool {
-        self.startup.map_or(true, |s| is_startup == s) && self.owners.contains(acct.owner)
+        self.startup.map_or(true, |s| is_startup == s) && 
+            ( self.owners.contains(acct.owner) || self.accounts.contains(acct.pubkey) )
     }
 }
 
