@@ -21,7 +21,7 @@ pub struct Config {
 
 #[serde_with::serde_as]
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Amqp {
     pub address: String,
 
@@ -30,7 +30,7 @@ pub struct Amqp {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Jobs {
     pub limit: usize,
 
@@ -39,7 +39,7 @@ pub struct Jobs {
 }
 
 #[derive(Debug, Default, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Metrics {
     pub config: Option<String>,
 }
@@ -47,7 +47,11 @@ pub struct Metrics {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Accounts {
+    #[serde(default)]
     pub owners: HashSet<String>,
+
+    #[serde(default)]
+    pub pubkeys: HashSet<String>,
 
     /// Filter for changing how to interpret the `is_startup` flag.
     ///
@@ -55,6 +59,7 @@ pub struct Accounts {
     ///  - `None`: Ignore the `is_startup` flag and send all updates.
     ///  - `Some(true)`: Only send updates when `is_startup` is `true`.
     ///  - `Some(false)`: Only send updates when `is_startup` is `false`.
+    #[serde(default)]
     pub startup: Option<bool>,
 
     /// Set to true to disable heuristics to reduce the number of incoming
@@ -67,6 +72,7 @@ pub struct Accounts {
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Instructions {
+    #[serde(default)]
     pub programs: HashSet<String>,
 
     /// Set to true to disable heuristics to reduce the number of incoming
