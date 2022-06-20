@@ -122,7 +122,7 @@ impl QueueType {
             props: QueueProps {
                 exchange,
                 queue,
-                binding: Binding::Fanout,
+                binding: Binding::RoutingKey,
                 prefetch: 4096,
                 max_len_bytes: if suffix.is_debug() || matches!(startup_type, StartupType::Normal) {
                     100 * 1024 * 1024 // 100 MiB

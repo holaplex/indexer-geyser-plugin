@@ -74,7 +74,7 @@ impl Sender {
         Ok(prod.downgrade())
     }
 
-    pub async fn send(&self, msg: Message) {
+    pub async fn send(&self, msg: Message, rk: &str) {
         #[inline]
         fn log_err<E: std::fmt::Debug>(counter: &'_ Counter) -> impl FnOnce(E) + '_ {
             |err| {
@@ -87,7 +87,7 @@ impl Sender {
         let prod = self.producer.read().await;
 
         if prod
-            .write(&msg)
+            .write(&msg, rk)
             .await
             .map_err(log_err(&metrics.errs))
             .is_ok()
@@ -101,7 +101,7 @@ impl Sender {
             Err(()) => return,
         };
 
-        match prod.write(&msg).await.map_err(log_err(&metrics.errs)) {
+        match prod.write(&msg, rk).await.map_err(log_err(&metrics.errs)) {
             Ok(()) | Err(()) => (), // Type-level assertion that we consumed the error
         }
     }
