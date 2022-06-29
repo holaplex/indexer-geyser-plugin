@@ -33,13 +33,21 @@ where
     /// # Errors
     /// This function fails if the value cannot be serialized or the serialized
     /// payload cannot be transmitted.
-    pub async fn write(&self, val: impl std::borrow::Borrow<Q::Message>, routing_key: &str) -> Result<()> {
+    pub async fn write(
+        &self,
+        val: impl std::borrow::Borrow<Q::Message>,
+        routing_key: &str,
+    ) -> Result<()> {
         let val = val.borrow();
 
         let mut vec = Vec::new();
         serialize(&mut vec, val)?;
 
-        self.ty.info().publish(&self.chan, &vec, routing_key).await?.await?;
+        self.ty
+            .info()
+            .publish(&self.chan, &vec, routing_key)
+            .await?
+            .await?;
 
         Ok(())
     }

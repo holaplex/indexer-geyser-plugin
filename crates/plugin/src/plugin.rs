@@ -248,17 +248,20 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
 
                         this.spawn(|this| async move {
                             this.producer
-                                .send(Message::AccountUpdate(AccountUpdate {
-                                    key,
-                                    lamports,
-                                    owner,
-                                    executable,
-                                    rent_epoch,
-                                    data,
-                                    write_version,
-                                    slot,
-                                    is_startup,
-                                }), &key.to_string())
+                                .send(
+                                    Message::AccountUpdate(AccountUpdate {
+                                        key,
+                                        lamports,
+                                        owner,
+                                        executable,
+                                        rent_epoch,
+                                        data,
+                                        write_version,
+                                        slot,
+                                        is_startup,
+                                    }),
+                                    &key.to_string(),
+                                )
                                 .await;
                             this.metrics.sends.log(1);
 

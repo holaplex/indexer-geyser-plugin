@@ -108,7 +108,12 @@ impl<'a> QueueInfo<'a> {
         Ok(())
     }
 
-    pub(crate) async fn publish(self, chan: &Channel, data: &[u8], routing_key: &str) -> Result<PublisherConfirm> {
+    pub(crate) async fn publish(
+        self,
+        chan: &Channel,
+        data: &[u8],
+        routing_key: &str,
+    ) -> Result<PublisherConfirm> {
         chan.basic_publish(
             self.0.exchange.as_ref(),
             match self.0.binding {
