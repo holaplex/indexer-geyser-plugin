@@ -39,8 +39,7 @@ pub enum Binding {
 impl Binding {
     fn routing_key(&self) -> &str {
         match self {
-            Self::Fanout => "",
-            Self::RoutingKey => "",
+            Self::Fanout | Self::RoutingKey => "",
             Self::Direct(k) => k.as_ref(),
         }
     }
@@ -88,8 +87,7 @@ impl<'a> QueueInfo<'a> {
             self.0.exchange.as_ref(),
             match self.0.binding {
                 Binding::Fanout => ExchangeKind::Fanout,
-                Binding::RoutingKey => ExchangeKind::Direct,
-                Binding::Direct(_) => ExchangeKind::Direct,
+                Binding::RoutingKey | Binding::Direct(_) => ExchangeKind::Direct,
             },
             ExchangeDeclareOptions::default(),
             FieldTable::default(),
