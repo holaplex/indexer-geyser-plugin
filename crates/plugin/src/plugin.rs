@@ -3,10 +3,10 @@ use std::{env, sync::Arc};
 use anyhow::Context;
 use hashbrown::HashSet;
 use indexer_rabbitmq::geyser::{AccountUpdate, InstructionNotify, Message};
-use solana_program::{instruction::CompiledInstruction, message::AccountKeys, program_pack::Pack};
-use spl_token::state::Account as TokenAccount;
+use solana_program::{instruction::CompiledInstruction, message::AccountKeys};
 
-static TOKEN_KEY: Pubkey = solana_program::pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+pub(crate) static TOKEN_KEY: Pubkey =
+    solana_program::pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
 use serde::Deserialize;
 
@@ -41,7 +41,6 @@ pub(crate) struct Inner {
     acct_sel: AccountSelector,
     ins_sel: InstructionSelector,
     metrics: Arc<Metrics>,
-    token_addresses: HashSet<Pubkey>,
 }
 
 impl Inner {
@@ -148,7 +147,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                 .map_err(custom_err(&metrics.errs))?;
         }
 
-        let (amqp, jobs, metrics_conf, acct_sel, ins_sel) = Config::read(cfg)
+        let (amqp, jobs, metrics_conf, mut acct_sel, ins_sel) = Config::read(cfg)
             .and_then(Config::into_parts)
             .map_err(custom_err(&metrics.errs))?;
 
@@ -172,7 +171,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
             .build()
             .map_err(custom_err(&metrics.errs))?;
 
-        let (producer, token_addresses) = rt.block_on(async {
+        let producer = rt.block_on(async {
             let producer = Sender::new(
                 amqp,
                 format!("geyser-rabbitmq-{}@{}", version, host),
@@ -182,11 +181,15 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
             .await
             .map_err(custom_err(&metrics.errs))?;
 
-            let tokens = Self::load_token_reg()
-                .await
-                .map_err(custom_err(&metrics.errs))?;
+            if acct_sel.screen_tokens() {
+                acct_sel.init_tokens(
+                    Self::load_token_reg()
+                        .await
+                        .map_err(custom_err(&metrics.errs))?,
+                );
+            }
 
-            Result::<_>::Ok((producer, tokens))
+            Result::<_>::Ok(producer)
         })?;
 
         self.0 = Some(Arc::new(Inner {
@@ -195,7 +198,6 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
             acct_sel,
             ins_sel,
             metrics,
-            token_addresses,
         }));
 
         Ok(())
@@ -227,20 +229,6 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                             data,
                             write_version,
                         } = *acct;
-
-                        if owner == TOKEN_KEY.as_ref()
-                            && data.len() == TokenAccount::get_packed_len()
-                        {
-                            let token_account = TokenAccount::unpack_from_slice(data);
-
-                            if let Ok(token_account) = token_account {
-                                if token_account.amount > 1
-                                    || this.token_addresses.contains(&token_account.mint)
-                                {
-                                    return Ok(());
-                                }
-                            }
-                        }
 
                         let key = Pubkey::new_from_array(pubkey.try_into()?);
                         let owner = Pubkey::new_from_array(owner.try_into()?);
@@ -288,7 +276,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                 .get(ins.program_id_index as usize)
                 .ok_or_else(|| anyhow!("Couldn't get program ID for instruction"))?;
 
-            if !sel.is_selected(&program) {
+            if !sel.is_selected(&program, ins) {
                 return Ok(None);
             }
 
