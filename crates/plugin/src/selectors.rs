@@ -123,14 +123,14 @@ impl InstructionSelector {
             if let [8, rest @ ..] = ins.data.as_slice() {
                 let amt = rest.try_into().map(u64::from_le_bytes);
 
-                debug_assert_eq!(
-                    ins.data,
-                    spl_token::instruction::TokenInstruction::Burn { amount: 1 }.pack(),
-                );
-
                 if !matches!(amt, Ok(1)) {
                     return false;
                 }
+
+                debug_assert_eq!(
+                    ins.data,
+                    spl_token::instruction::TokenInstruction::Burn { amount: 1_u64 }.pack(),
+                );
             } else {
                 return false;
             }
