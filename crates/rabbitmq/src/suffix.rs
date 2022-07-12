@@ -16,6 +16,11 @@ pub enum Suffix {
     Staging,
     /// This is a debug name, identified further with a unique name
     Debug(String),
+    /// This is always a production name, even when compiled in debug mode.
+    /// Should only be used if you know what you're doing!
+    ///
+    /// This variant cannot be constructed from arguments.
+    ProductionUnchecked,
 }
 
 impl clap::Args for Suffix {
@@ -66,14 +71,13 @@ impl Suffix {
     }
 
     pub(crate) fn format(&self, mut prefix: String) -> Result<String> {
-        if cfg!(debug_assertions) && !self.is_debug() {
-            return Err(Error::InvalidQueueType(
-                "Debug builds must specify a unique debug suffix for all AMQP names",
-            ));
-        }
-
         match self {
-            Self::Production => (),
+            Self::Production if cfg!(debug_assertions) => {
+                return Err(Error::InvalidQueueType(
+                    "Debug builds must specify a unique debug suffix for all AMQP names",
+                ))
+            },
+            Self::Production | Self::ProductionUnchecked => (),
             Self::Staging => write!(prefix, ".staging").unwrap_or_else(|_| unreachable!()),
             Self::Debug(s) => write!(prefix, ".debug.{}", s).unwrap_or_else(|_| unreachable!()),
         }
