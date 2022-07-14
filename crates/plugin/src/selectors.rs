@@ -119,7 +119,7 @@ impl InstructionSelector {
             return false;
         }
 
-        if self.screen_tokens {
+        if self.screen_tokens && *pgm == TOKEN_KEY {
             if let [8, rest @ ..] = ins.data.as_slice() {
                 let amt = rest.try_into().map(u64::from_le_bytes);
 
