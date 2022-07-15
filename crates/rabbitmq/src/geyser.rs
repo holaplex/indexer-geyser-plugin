@@ -49,6 +49,8 @@ pub struct InstructionNotify {
     /// The slot in which the transaction including this instruction was
     /// reported
     pub slot: u64,
+    /// The index of the transaction this instruction belongs to
+    pub transaction_idx: Option<u64>,
 }
 
 /// A message transmitted by a Geyser plugin
