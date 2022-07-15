@@ -29,6 +29,8 @@ pub struct AccountUpdate {
     pub data: Vec<u8>,
     /// Monotonic-increasing counter for sequencing on-chain writes
     pub write_version: u64,
+    /// The signature of the transaction responsible for this update
+    pub txn_signature: Option<Vec<u8>>,
     /// The slot in which this account was updated
     pub slot: u64,
     /// True if this update was triggered by a validator startup
@@ -47,6 +49,8 @@ pub struct InstructionNotify {
     /// The slot in which the transaction including this instruction was
     /// reported
     pub slot: u64,
+    /// The index of the transaction this instruction belongs to
+    pub transaction_idx: Option<u64>,
 }
 
 /// A message transmitted by a Geyser plugin
