@@ -1,11 +1,11 @@
 use hashbrown::HashSet;
 use indexer_rabbitmq::geyser::StartupType;
-use solana_program::{instruction::CompiledInstruction, program_pack::Pack};
+use solana_sdk::{instruction::CompiledInstruction, program_pack::Pack};
 use spl_token::state::Account as TokenAccount;
 
 use crate::{
     config::{Accounts, Instructions},
-    interface::ReplicaAccountInfo,
+    interface::ReplicaAccountInfoV2,
     plugin::TOKEN_KEY,
     prelude::*,
 };
@@ -69,8 +69,8 @@ impl AccountSelector {
     }
 
     #[inline]
-    pub fn is_selected(&self, acct: &ReplicaAccountInfo, is_startup: bool) -> bool {
-        let ReplicaAccountInfo { owner, data, .. } = *acct;
+    pub fn is_selected(&self, acct: &ReplicaAccountInfoV2, is_startup: bool) -> bool {
+        let ReplicaAccountInfoV2 { owner, data, .. } = *acct;
 
         if self.startup.map_or(false, |s| is_startup != s)
             || !(self.owners.contains(owner) || self.pubkeys.contains(acct.pubkey))
