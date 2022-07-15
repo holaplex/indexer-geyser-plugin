@@ -163,7 +163,7 @@ impl GeyserPluginRabbitMq {
         _is_vote: bool,
         transaction: &SanitizedTransaction,
         transaction_status_meta: &TransactionStatusMeta,
-        _index: Option<usize>,
+        index: Option<u64>,
         slot: u64,
     ) {
         #[inline]
@@ -171,6 +171,7 @@ impl GeyserPluginRabbitMq {
             sel: &InstructionSelector,
             ins: &CompiledInstruction,
             keys: &AccountKeys,
+            transaction_idx: Option<u64>,
             slot: u64,
         ) -> anyhow::Result<Option<Message>> {
             let program = *keys
@@ -199,6 +200,7 @@ impl GeyserPluginRabbitMq {
                 data,
                 accounts,
                 slot,
+                transaction_idx,
             })))
         }
 
@@ -216,7 +218,7 @@ impl GeyserPluginRabbitMq {
                 .flatten()
                 .flat_map(|i| i.instructions.iter()),
         ) {
-            match process_instruction(&this.ins_sel, ins, &keys, slot) {
+            match process_instruction(&this.ins_sel, ins, &keys, index, slot) {
                 Ok(Some(m)) => {
                     this.spawn(|this| async move {
                         this.producer.send(m).await;
@@ -420,7 +422,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                         is_vote,
                         transaction,
                         transaction_status_meta,
-                        Some(index),
+                        Some(index.try_into()?),
                         slot,
                     ),
                 }
