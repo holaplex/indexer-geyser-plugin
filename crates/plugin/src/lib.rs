@@ -17,7 +17,7 @@ pub(crate) mod prelude {
 
     pub use anyhow::{anyhow, bail, Context, Error};
     pub use log::{debug, error, info, trace, warn};
-    pub use solana_program::pubkey::Pubkey;
+    pub use solana_sdk::pubkey::Pubkey;
 
     pub type Result<T, E = Error> = StdResult<T, E>;
 }
