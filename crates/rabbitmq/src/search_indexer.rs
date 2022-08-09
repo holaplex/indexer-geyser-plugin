@@ -4,6 +4,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use solana_program::pubkey::Pubkey;
 
 use crate::{
     queue_type::{Binding, QueueProps, RetryProps},
@@ -31,6 +32,13 @@ pub enum Message {
         /// MeiliSearch Document
         /// contains primary key and content
         document: Document,
+    },
+    /// Upsert a metadata account, indirected by its mint address
+    IndirectMetadata {
+        /// Search index to insert the metadata into
+        index: String,
+        /// Mint address of the metadata account to upsert
+        mint: Pubkey,
     },
 }
 
