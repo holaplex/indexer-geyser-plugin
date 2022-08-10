@@ -19,7 +19,7 @@ default = ["consumer"]
 geyser = ["solana-program", "suffix"]
 http-indexer = ["solana-program", "suffix"]
 producer = ["suffix"]
-search-indexer = ["serde_json", "suffix"]
+search-indexer = ["serde_json", "solana-program", "suffix"]
 suffix = ["clap"]
 
 [dependencies]
