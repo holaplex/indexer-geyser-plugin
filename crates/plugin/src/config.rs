@@ -16,8 +16,7 @@ pub struct Config {
     metrics: Metrics,
 
     accounts: Accounts,
-
-    instruction_programs: HashSet<String>,
+    instructions: Instructions,
 }
 
 #[serde_with::serde_as]
@@ -46,7 +45,7 @@ pub struct Metrics {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Accounts {
     pub owners: HashSet<String>,
 
@@ -57,6 +56,26 @@ pub struct Accounts {
     ///  - `Some(true)`: Only send updates when `is_startup` is `true`.
     ///  - `Some(false)`: Only send updates when `is_startup` is `false`.
     pub startup: Option<bool>,
+
+    /// Set to true to disable heuristics to reduce the number of incoming
+    /// token account updates.  Has no effect if the spl-token pubkey is not in
+    /// the owners list.
+    #[serde(default)]
+    pub all_tokens: bool,
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Instructions {
+    pub programs: HashSet<String>,
+
+    /// Set to true to disable heuristics to reduce the number of incoming
+    /// token instructions.  Has no effect if the spl-token pubkey is not in the
+    /// programs list.  Currently the heuristics are tailored towards NFT burns,
+    /// only passing through instructions whose data indicates a burn of amount
+    /// 1.
+    #[serde(default)]
+    pub all_token_calls: bool,
 }
 
 impl Config {
@@ -73,12 +92,12 @@ impl Config {
             jobs,
             metrics,
             accounts,
-            instruction_programs,
+            instructions,
         } = self;
 
         let acct =
             AccountSelector::from_config(accounts).context("Failed to create account selector")?;
-        let ins = InstructionSelector::from_config(instruction_programs)
+        let ins = InstructionSelector::from_config(instructions)
             .context("Failed to create instruction selector")?;
 
         Ok((amqp, jobs, metrics, acct, ins))
