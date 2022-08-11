@@ -26,11 +26,22 @@
       "useZ65tbyvWpdYCLDJaegGK34Lnsi8S3jZdwx8122qp",
       "LocktDzaV1W2Bm9DeZeiyz4J9zs4fRqNiYqQyracRXw",
       "Govz1VyoyLD5BL6CSCxUJLVLsQHRwjfFj1prNsdNg5Jw",
-      "GokivDYuQXPZCWRkwMhdH2h91KpDQXBEmpgBgs55bnpH"
+      "GokivDYuQXPZCWRkwMhdH2h91KpDQXBEmpgBgs55bnpH",
+      "TBondmkCYxaPCKG4CHYfVTcwQ8on31xnJrPzk8F8WsS",
+      "nameXpT2PwZ2iA6DTNYTotTmiMYusBCYqwBLN2QgF4w",
+      "HAbiTatJVqoCJd9asyr6RxMEdwtfrQugwp7VAFyKWb1g",
+      "GovER5Lthms3bLBqWub97yVrMmEogzX7xNjdXpPPCVZw"
     ],
     "accounts": [
     ],
     "startup": false
   },
-  "instructionPrograms": []
+  "instructions": {
+    "programs": [
+      "M2mx93ekt1fmXSVkTrUL9xVFHkmME8HTUi5Cyc5aF7K",
+      "MEisE1HzehtrDpAAT8PnLHjpSSkRYakotTuJRPjTpo8",
+      "hausS13jsjafwWwGqZTUQRmWyvyxn9EQpqMwV1PBBmk",
+      "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA"
+    ]
+  }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "holaplex-indexer-rabbitmq"
-version = "0.1.0"
+version = "0.2.0"
 authors = [
   "ryans <ryans@holaplex.com>",
 ]
@@ -19,7 +19,7 @@ default = ["consumer"]
 geyser = ["solana-program", "suffix"]
 http-indexer = ["solana-program", "suffix"]
 producer = ["suffix"]
-search-indexer = ["serde_json", "suffix"]
+search-indexer = ["serde_json", "solana-program", "suffix"]
 suffix = ["clap"]
 
 [dependencies]
