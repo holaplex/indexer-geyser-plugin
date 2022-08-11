@@ -7,7 +7,7 @@ use crate::{
 };
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase")]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Config {
     amqp: Amqp,
     jobs: Jobs,
@@ -17,6 +17,10 @@ pub struct Config {
 
     accounts: Accounts,
     instructions: Instructions,
+
+    /// Unused but required by the validator to load the plugin
+    #[allow(dead_code)]
+    libpath: String,
 }
 
 #[serde_with::serde_as]
@@ -99,6 +103,7 @@ impl Config {
             metrics,
             accounts,
             instructions,
+            libpath: _,
         } = self;
 
         let acct =
