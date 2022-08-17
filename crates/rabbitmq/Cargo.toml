@@ -33,5 +33,5 @@ serde = { version = "1.0.133", features = ["derive"] }
 serde_json = { version = "1.0.79", optional = true }
 # TODO: tighten this bound once more things support 1.10
 solana-program = { version = ">=1.9", optional = true }
-strum = { version = "0.23.0", features = ["derive"] }
+strum = { version = "0.24.1", features = ["derive"] }
 thiserror = "1.0.30"
