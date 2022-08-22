@@ -11,8 +11,11 @@ use crate::{
 };
 
 /// Message data for a job dispatch request
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-pub enum Message {}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Message {
+    /// Refresh a table of cached data
+    RefreshTable(String),
+}
 
 /// AMQP configuration for job runners
 #[derive(Debug, Clone)]
@@ -35,7 +38,7 @@ impl QueueType {
                 exchange,
                 queue,
                 binding: Binding::Fanout,
-                prefetch: 512,
+                prefetch: 1,
                 max_len_bytes: 100 * 1024 * 1024, // 100 MiB
                 auto_delete: suffix.is_debug(),
                 retry: Some(RetryProps {
