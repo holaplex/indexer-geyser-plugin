@@ -2,13 +2,18 @@ use std::{env, sync::Arc};
 
 use anyhow::Context;
 use hashbrown::HashSet;
-use indexer_rabbitmq::geyser::{AccountUpdate, InstructionNotify, Message};
+use indexer_rabbitmq::geyser::{AccountUpdate, InstructionNotify, Message, TransactionNotify};
+use solana_geyser_plugin_interface::geyser_plugin_interface::ReplicaTransactionInfo;
 use solana_program::{instruction::CompiledInstruction, message::AccountKeys};
 
 pub(crate) static TOKEN_KEY: Pubkey =
     solana_program::pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
 use serde::Deserialize;
+use solana_transaction_status::{
+    ConfirmedTransactionWithStatusMeta, TransactionWithStatusMeta, UiTransactionEncoding,
+    VersionedTransactionWithStatusMeta,
+};
 
 use crate::{
     config::Config,
@@ -18,7 +23,7 @@ use crate::{
     },
     metrics::{Counter, Metrics},
     prelude::*,
-    selectors::{AccountSelector, InstructionSelector},
+    selectors::{AccountSelector, InstructionSelector, TransactionSelector},
     sender::Sender,
 };
 
@@ -40,6 +45,7 @@ pub(crate) struct Inner {
     producer: Sender,
     acct_sel: AccountSelector,
     ins_sel: InstructionSelector,
+    tx_sel: TransactionSelector,
     metrics: Arc<Metrics>,
 }
 
@@ -147,7 +153,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                 .map_err(custom_err(&metrics.errs))?;
         }
 
-        let (amqp, jobs, metrics_conf, mut acct_sel, ins_sel) = Config::read(cfg)
+        let (amqp, jobs, metrics_conf, mut acct_sel, ins_sel, tx_sel) = Config::read(cfg)
             .and_then(Config::into_parts)
             .map_err(custom_err(&metrics.errs))?;
 
@@ -197,6 +203,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
             producer,
             acct_sel,
             ins_sel,
+            tx_sel,
             metrics,
         }));
 
@@ -260,6 +267,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
         )
     }
 
+    #[allow(clippy::too_many_lines)]
     fn notify_transaction(
         &mut self,
         transaction: ReplicaTransactionInfoVersions,
@@ -301,10 +309,40 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
             })))
         }
 
+        #[inline]
+        fn process_transaction(
+            sel: &TransactionSelector,
+            tx: &ReplicaTransactionInfo,
+            slot: u64,
+        ) -> anyhow::Result<Option<Message>> {
+            if !sel.is_selected(tx)? {
+                return Ok(None);
+            }
+
+            //make it pretty
+            let full_tx = ConfirmedTransactionWithStatusMeta {
+                tx_with_meta: TransactionWithStatusMeta::Complete(
+                    VersionedTransactionWithStatusMeta {
+                        meta: tx.transaction_status_meta.clone(),
+                        transaction: tx.transaction.to_versioned_transaction(),
+                    },
+                ),
+                slot,
+                block_time: None,
+            };
+            let encoded_tx = full_tx.encode(UiTransactionEncoding::Json, Some(0))?;
+
+            Ok(Some(Message::TransactionNotify(Box::new(
+                TransactionNotify {
+                    transaction: encoded_tx,
+                },
+            ))))
+        }
+
         self.with_inner(
             || GeyserPluginError::Custom(anyhow!(UNINIT).into()),
             |this| {
-                if this.ins_sel.is_empty() {
+                if this.ins_sel.is_empty() && this.tx_sel.is_empty() {
                     return Ok(());
                 }
 
@@ -316,6 +354,24 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                             return Ok(());
                         }
 
+                        //handle tx match
+                        match process_transaction(&this.tx_sel, tx, slot) {
+                            Ok(Some(m)) => {
+                                this.spawn(|this| async move {
+                                    this.producer.send(m).await;
+                                    this.metrics.sends.log(1);
+
+                                    Ok(())
+                                });
+                            },
+                            Ok(None) => (),
+                            Err(e) => {
+                                warn!("Error processing transaction: {:?}", e);
+                                this.metrics.errs.log(1);
+                            },
+                        }
+
+                        //handle ix matches
                         let msg = tx.transaction.message();
                         let keys = msg.account_keys();
 
@@ -351,7 +407,8 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
     }
 
     fn account_data_notifications_enabled(&self) -> bool {
-        true
+        let this = self.expect_inner();
+        !this.acct_sel.is_empty()
     }
 
     fn transaction_notifications_enabled(&self) -> bool {

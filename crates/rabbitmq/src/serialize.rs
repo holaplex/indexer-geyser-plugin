@@ -7,7 +7,7 @@ use std::io::Write;
 ///
 /// # Errors
 /// This function fails if an I/O error occurs or a wire format error occurs.
-#[cfg(feature = "producer")]
+#[cfg(not(feature = "produce-json"))]
 pub fn serialize<M: serde::Serialize>(
     w: impl Write,
     msg: &M,
@@ -15,6 +15,17 @@ pub fn serialize<M: serde::Serialize>(
     let mut ser = rmp_serde::Serializer::new(w)
         .with_binary()
         .with_struct_map();
+
+    msg.serialize(&mut ser)
+}
+
+/// Serialize a message into a [`Write`] stream as JSON
+///
+/// # Errors
+/// This function fails if an I/O error occurs or a wire format error occurs.
+#[cfg(feature = "produce-json")]
+pub fn json<M: serde::Serialize>(w: impl Write, msg: &M) -> Result<(), serde_json::error::Error> {
+    let mut ser = serde_json::Serializer::new(w);
 
     msg.serialize(&mut ser)
 }

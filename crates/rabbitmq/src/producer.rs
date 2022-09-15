@@ -2,7 +2,12 @@
 
 use lapin::{Channel, Connection};
 
-use crate::{serialize::serialize, QueueType, Result};
+use crate::{QueueType, Result};
+
+#[cfg(feature = "produce-json")]
+use crate::serialize::json;
+#[cfg(not(feature = "produce-json"))]
+use crate::serialize::serialize;
 
 /// A producer consisting of a configured channel and additional queue config
 #[derive(Debug)]
@@ -33,13 +38,25 @@ where
     /// # Errors
     /// This function fails if the value cannot be serialized or the serialized
     /// payload cannot be transmitted.
-    pub async fn write(&self, val: impl std::borrow::Borrow<Q::Message>) -> Result<()> {
+    pub async fn write(
+        &self,
+        val: impl std::borrow::Borrow<Q::Message>,
+        routing_key: Option<&str>,
+    ) -> Result<()> {
         let val = val.borrow();
 
         let mut vec = Vec::new();
+
+        #[cfg(feature = "produce-json")]
+        json(&mut vec, val)?;
+        #[cfg(not(feature = "produce-json"))]
         serialize(&mut vec, val)?;
 
-        self.ty.info().publish(&self.chan, &vec).await?.await?;
+        self.ty
+            .info()
+            .publish(&self.chan, &vec, routing_key)
+            .await?
+            .await?;
 
         Ok(())
     }

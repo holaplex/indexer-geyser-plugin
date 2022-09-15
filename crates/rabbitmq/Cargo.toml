@@ -19,8 +19,9 @@ default = ["consumer"]
 geyser = ["solana-program", "suffix"]
 http-indexer = ["solana-program", "suffix"]
 producer = ["suffix"]
-search-indexer = ["serde_json", "solana-program", "suffix"]
+search-indexer = ["solana-program", "suffix"]
 suffix = ["clap"]
+produce-json = []
 
 [dependencies]
 clap = { version = "3.1.12", default-features = false, features = ["env", "std"], optional = true }
@@ -30,8 +31,9 @@ log = "0.4.14"
 rand = "0.8.5"
 rmp-serde = "1.0.0-beta.2"
 serde = { version = "1.0.133", features = ["derive"] }
-serde_json = { version = "1.0.79", optional = true }
+serde_json = { version = "1.0.79" }
 # TODO: tighten this bound once more things support 1.10
 solana-program = { version = ">=1.9", optional = true }
 strum = { version = "0.24.1", features = ["derive"] }
 thiserror = "1.0.30"
+solana-transaction-status = "~1.10.25"

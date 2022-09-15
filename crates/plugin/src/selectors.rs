@@ -1,10 +1,12 @@
 use hashbrown::HashSet;
 use indexer_rabbitmq::geyser::StartupType;
+use itertools::Itertools;
+use solana_geyser_plugin_interface::geyser_plugin_interface::ReplicaTransactionInfo;
 use solana_program::{instruction::CompiledInstruction, program_pack::Pack};
 use spl_token::state::Account as TokenAccount;
 
 use crate::{
-    config::{Accounts, Instructions},
+    config::{Accounts, Instructions, Transactions},
     interface::ReplicaAccountInfo,
     plugin::TOKEN_KEY,
     prelude::*,
@@ -66,6 +68,11 @@ impl AccountSelector {
     #[inline]
     pub fn screen_tokens(&self) -> bool {
         self.token_addresses.is_some()
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.owners.is_empty() && self.pubkeys.is_empty() && self.token_addresses.is_none()
     }
 
     #[inline]
@@ -148,5 +155,89 @@ impl InstructionSelector {
         }
 
         true
+    }
+}
+
+#[derive(Debug)]
+pub struct TransactionSelector {
+    programs: HashSet<Pubkey>,
+    pubkeys: HashSet<Pubkey>,
+}
+
+impl TransactionSelector {
+    pub fn from_config(config: Transactions) -> Result<Self> {
+        let Transactions { programs, pubkeys } = config;
+
+        let programs = programs
+            .into_iter()
+            .map(|s| s.parse())
+            .collect::<Result<_, _>>()
+            .context("Failed to parse instruction program keys")?;
+
+        let pubkeys = pubkeys
+            .into_iter()
+            .map(|s| s.parse())
+            .collect::<Result<_, _>>()
+            .context("Failed to parse instruction program keys")?;
+
+        Ok(Self { programs, pubkeys })
+    }
+
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.programs.is_empty()
+    }
+
+    #[inline]
+    pub fn is_selected(&self, tx: &ReplicaTransactionInfo) -> anyhow::Result<bool> {
+        let msg = tx.transaction.message();
+        let keys = msg.account_keys();
+
+        if !self.programs.is_empty() {
+            //check root program ixs
+            if let Some(r) = msg
+                .instructions()
+                .iter()
+                .map(|a| a.program_id_index.into())
+                .unique()
+                .map(|a| {
+                    keys.get(a)
+                        .ok_or_else(|| anyhow!("pgm index {} invalid", a))
+                })
+                .find(|a| match a {
+                    Err(_) => true,
+                    Ok(pubkey) => self.programs.contains(pubkey),
+                })
+            {
+                return r.map(|_| true);
+            }
+
+            //check inner program ixs
+            let inner = &tx.transaction_status_meta.inner_instructions;
+            if let Some(ixs) = inner {
+                if let Some(r) = ixs
+                    .iter()
+                    .flat_map(|a| &a.instructions)
+                    .map(|a| a.program_id_index.into())
+                    .unique()
+                    .map(|a| {
+                        keys.get(a)
+                            .ok_or_else(|| anyhow!("pgm index {} invalid", a))
+                    })
+                    .find(|a| match a {
+                        Err(_) => true,
+                        Ok(pubkey) => self.programs.contains(pubkey),
+                    })
+                {
+                    return r.map(|_| true);
+                }
+            }
+        }
+
+        if !self.pubkeys.is_empty() && keys.iter().unique().any(|a| self.pubkeys.contains(a)) {
+            return Ok(true);
+        }
+
+        Ok(false)
     }
 }

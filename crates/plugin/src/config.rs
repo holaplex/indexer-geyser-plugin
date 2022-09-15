@@ -3,7 +3,7 @@ use serde::Deserialize;
 
 use crate::{
     prelude::*,
-    selectors::{AccountSelector, InstructionSelector},
+    selectors::{AccountSelector, InstructionSelector, TransactionSelector},
 };
 
 #[derive(Debug, Deserialize)]
@@ -17,6 +17,7 @@ pub struct Config {
 
     accounts: Accounts,
     instructions: Instructions,
+    transactions: Transactions,
 
     /// Unused but required by the validator to load the plugin
     #[allow(dead_code)]
@@ -88,21 +89,42 @@ pub struct Instructions {
     pub all_token_calls: bool,
 }
 
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct Transactions {
+    #[serde(default)]
+    pub programs: HashSet<String>,
+    #[serde(default)]
+    pub pubkeys: HashSet<String>,
+}
+
 impl Config {
     pub fn read(path: &str) -> Result<Self> {
         let f = std::fs::File::open(path).context("Failed to open config file")?;
         let cfg = serde_json::from_reader(f).context("Failed to parse config file")?;
 
+        log::info!("{:?}", cfg);
+
         Ok(cfg)
     }
 
-    pub fn into_parts(self) -> Result<(Amqp, Jobs, Metrics, AccountSelector, InstructionSelector)> {
+    pub fn into_parts(
+        self,
+    ) -> Result<(
+        Amqp,
+        Jobs,
+        Metrics,
+        AccountSelector,
+        InstructionSelector,
+        TransactionSelector,
+    )> {
         let Self {
             amqp,
             jobs,
             metrics,
             accounts,
             instructions,
+            transactions,
             libpath: _,
         } = self;
 
@@ -110,7 +132,9 @@ impl Config {
             AccountSelector::from_config(accounts).context("Failed to create account selector")?;
         let ins = InstructionSelector::from_config(instructions)
             .context("Failed to create instruction selector")?;
+        let txs = TransactionSelector::from_config(transactions)
+            .context("Failed to create instruction selector")?;
 
-        Ok((amqp, jobs, metrics, acct, ins))
+        Ok((amqp, jobs, metrics, acct, ins, txs))
     }
 }

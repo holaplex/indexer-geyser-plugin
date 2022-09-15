@@ -27,6 +27,9 @@ pub enum Error {
     /// An error propagated from [`rmp_serde`] during encoding
     #[error("MsgPack encode error: {0:?}")]
     MsgEncode(#[from] rmp_serde::encode::Error),
+    /// An error propagated from [`serde_json`] during encoding
+    #[error("MsgPack encode json error: {0:?}")]
+    MsgEncodeJson(#[from] serde_json::error::Error),
     /// An error propagated from [`rmp_serde`] during decoding
     #[error("MsgPack decode error: {0:?}")]
     MsgDecode(#[from] rmp_serde::decode::Error),

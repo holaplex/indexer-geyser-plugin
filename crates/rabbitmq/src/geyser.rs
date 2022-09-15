@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use serde::{Deserialize, Serialize};
 pub use solana_program::pubkey::Pubkey;
+use solana_transaction_status::EncodedConfirmedTransactionWithStatusMeta;
 
 use crate::{
     queue_type::{Binding, QueueProps, RetryProps},
@@ -14,6 +15,7 @@ use crate::{
 
 /// Message data for an account update
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct AccountUpdate {
     /// The account's public key
     pub key: Pubkey,
@@ -37,6 +39,7 @@ pub struct AccountUpdate {
 
 /// Message data for an instruction notification
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct InstructionNotify {
     /// The program this instruction was executed with
     pub program: Pubkey,
@@ -49,13 +52,36 @@ pub struct InstructionNotify {
     pub slot: u64,
 }
 
+/// Message data for an instruction notification
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct TransactionNotify {
+    /// the transactions
+    pub transaction: EncodedConfirmedTransactionWithStatusMeta,
+}
+
 /// A message transmitted by a Geyser plugin
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum Message {
     /// Indicates an account should be updated
     AccountUpdate(AccountUpdate),
     /// Indicates an instruction was included in a **successful** transaction
     InstructionNotify(InstructionNotify),
+    /// Indicates an instruction was included in a **successful** transaction
+    TransactionNotify(Box<TransactionNotify>),
+}
+
+impl Message {
+    /// the routing key to use for this message type
+    #[must_use]
+    pub fn routing_key(&self) -> Option<&str> {
+        match self {
+            Message::AccountUpdate(_) => Some("account"),
+            Message::InstructionNotify(_) => Some("instruction"),
+            Message::TransactionNotify(_) => Some("transaction"),
+        }
+    }
 }
 
 /// AMQP configuration for Geyser plugins
@@ -108,7 +134,7 @@ impl QueueType {
     /// This function fails if the given queue suffix is invalid.
     pub fn new(network: Network, startup_type: StartupType, suffix: &Suffix) -> Result<Self> {
         let exchange = format!(
-            "{}{}.accounts",
+            "{}{}.messages",
             network,
             match startup_type {
                 StartupType::Normal => "",
@@ -122,7 +148,7 @@ impl QueueType {
             props: QueueProps {
                 exchange,
                 queue,
-                binding: Binding::Fanout,
+                binding: Binding::Direct(String::from("unused")),
                 prefetch: 4096,
                 max_len_bytes: if suffix.is_debug() || matches!(startup_type, StartupType::Normal) {
                     100 * 1024 * 1024 // 100 MiB
