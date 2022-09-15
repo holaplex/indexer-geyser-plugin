@@ -178,14 +178,14 @@ impl TransactionSelector {
             .into_iter()
             .map(|s| s.parse())
             .collect::<Result<_, _>>()
-            .context("Failed to parse instruction program keys")?;
+            .context("Failed to parse instruction pubkeys")?;
 
         Ok(Self { programs, pubkeys })
     }
 
     #[inline]
     pub fn is_empty(&self) -> bool {
-        self.programs.is_empty()
+        self.programs.is_empty() && self.pubkeys.is_empty()
     }
 
     #[inline]

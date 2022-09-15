@@ -413,6 +413,6 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
 
     fn transaction_notifications_enabled(&self) -> bool {
         let this = self.expect_inner();
-        !this.ins_sel.is_empty()
+        !(this.ins_sel.is_empty() && this.tx_sel.is_empty())
     }
 }
