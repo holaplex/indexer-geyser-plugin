@@ -118,22 +118,25 @@ impl QueueType {
         );
         let queue = suffix.format(format!("{}.indexer", exchange))?;
 
+        let max_len_bytes = if suffix.is_debug() || matches!(startup_type, StartupType::Normal) {
+            512 * 1024 * 1024 // 512 MiB
+        } else {
+            12 * 1024 * 1024 * 1024 // 12 GiB
+        };
+
         Ok(Self {
             props: QueueProps {
                 exchange,
                 queue,
                 binding: Binding::Fanout,
                 prefetch: 4096,
-                max_len_bytes: if suffix.is_debug() || matches!(startup_type, StartupType::Normal) {
-                    100 * 1024 * 1024 // 100 MiB
-                } else {
-                    8 * 1024 * 1024 * 1024 // 8 GiB
-                },
+                max_len_bytes,
                 auto_delete: suffix.is_debug(),
                 retry: Some(RetryProps {
                     max_tries: 3,
                     delay_hint: Duration::from_millis(500),
                     max_delay: Duration::from_secs(10 * 60),
+                    max_len_bytes,
                 }),
             },
         })
