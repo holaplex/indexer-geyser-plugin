@@ -106,7 +106,6 @@ impl<E: Entity> QueueType<E> {
                     max_tries: 8,
                     delay_hint: Duration::from_secs(2),
                     max_delay: Duration::from_secs(6 * 60),
-                    max_len_bytes: 100 * 1024 * 1024, // 100 MiB
                 }),
             },
             _p: PhantomData::default(),

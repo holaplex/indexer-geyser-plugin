@@ -45,7 +45,6 @@ impl QueueType {
                     max_tries: 5,
                     delay_hint: Duration::from_secs(5),
                     max_delay: Duration::from_secs(10 * 60),
-                    max_len_bytes: 100 * 1024 * 1024, // 100 MiB
                 }),
             },
         })

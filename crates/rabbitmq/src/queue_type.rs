@@ -49,7 +49,6 @@ pub struct RetryProps {
     pub max_tries: u64,
     pub delay_hint: Duration,
     pub max_delay: Duration,
-    pub max_len_bytes: i64,
 }
 
 #[derive(Debug, Clone)]
@@ -276,16 +275,11 @@ impl<'a> QueueInfo<'a> {
             .await?;
         }
 
-        let retry = self
-            .0
-            .retry
-            .ok_or(crate::Error::InvalidQueueType("Missing retry properties"))?;
-
         {
             let mut queue_fields = FieldTable::default();
             queue_fields.insert(
                 "x-max-length-bytes".into(),
-                AMQPValue::LongLongInt(self.0.max_len_bytes.min(retry.max_len_bytes)),
+                AMQPValue::LongLongInt(self.0.max_len_bytes),
             );
 
             // TODO: add a true DL queue
@@ -331,6 +325,11 @@ impl<'a> QueueInfo<'a> {
                 FieldTable::default(),
             )
             .await?;
+
+        let retry = self
+            .0
+            .retry
+            .ok_or(crate::Error::InvalidQueueType("Missing retry properties"))?;
 
         Ok((
             consumer,
