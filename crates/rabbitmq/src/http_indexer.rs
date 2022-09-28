@@ -47,6 +47,9 @@ pub trait Entity: std::fmt::Debug + Serialize + for<'a> Deserialize<'a> {
 
     /// A name to use when declaring queues and exchanges
     const ID: Self::Id;
+
+    /// The maximum queue length to use for this entity
+    const MAX_LEN_BYTES: i64;
 }
 
 /// Fetch the off-chain JSON for a metadata account
@@ -67,6 +70,8 @@ impl Entity for MetadataJson {
     type Id = EntityId;
 
     const ID: EntityId = EntityId::MetadataJson;
+
+    const MAX_LEN_BYTES: i64 = 512 * 1024 * 1024; // 512 MiB
 }
 
 /// Fetch the off-chain JSON config for a storefront
@@ -82,6 +87,8 @@ impl Entity for StoreConfig {
     type Id = EntityId;
 
     const ID: EntityId = EntityId::StoreConfig;
+
+    const MAX_LEN_BYTES: i64 = 100 * 1024 * 1024; // 100 MiB
 }
 
 impl<E: Entity> QueueType<E> {
@@ -100,7 +107,7 @@ impl<E: Entity> QueueType<E> {
                 queue,
                 binding: Binding::Fanout,
                 prefetch: 1024,
-                max_len_bytes: 100 * 1024 * 1024, // 100 MiB
+                max_len_bytes: E::MAX_LEN_BYTES,
                 auto_delete: suffix.is_debug(),
                 retry: Some(RetryProps {
                     max_tries: 8,

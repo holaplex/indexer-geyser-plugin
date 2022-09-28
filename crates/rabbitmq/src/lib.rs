@@ -46,6 +46,8 @@ pub mod dl_consumer;
 pub mod geyser;
 #[cfg(feature = "http-indexer")]
 pub mod http_indexer;
+#[cfg(feature = "job-runner")]
+pub mod job_runner;
 #[cfg(feature = "producer")]
 pub mod producer;
 mod queue_type;
