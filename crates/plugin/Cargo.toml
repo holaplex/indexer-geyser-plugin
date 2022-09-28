@@ -1,6 +1,6 @@
 [package]
 name = "holaplex-indexer-rabbitmq-geyser"
-version = "0.5.0"
+version = "0.6.0"
 authors = [
   "ryans <ryans@holaplex.com>",
 ]
@@ -28,14 +28,14 @@ parking_lot = "0.12.0"
 reqwest = "0.11.6"
 serde = { version = "1.0.133", features = ["derive"] }
 serde_json = "1.0.75"
-serde_with = "1.11.0"
+serde_with = "2.0.0"
 tokio-executor-trait = "2.1.0"
 tokio-reactor-trait = "1.1.0"
 
-solana-geyser-plugin-interface = "1.10.25"
-solana-logger = "1.10.25"
-solana-program = "1.10.25"
-solana-metrics = "1.10.25"
+solana-geyser-plugin-interface = "~1.10.25"
+solana-logger = "~1.10.25"
+solana-program = "~1.10.25"
+solana-metrics = "~1.10.25"
 spl-token = "3.3.0"
 
 [dependencies.tokio]
@@ -51,7 +51,7 @@ features = [
 
 [dependencies.indexer-rabbitmq]
 package = "holaplex-indexer-rabbitmq"
-version = "=0.2.0"
+version = "=0.3.0"
 path = "../rabbitmq"
 default-features = false
 features = ["producer", "geyser"]

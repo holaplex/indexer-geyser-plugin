@@ -13,6 +13,7 @@ use crate::{
 #[derive(Debug)]
 pub struct AccountSelector {
     owners: HashSet<[u8; 32]>,
+    pubkeys: HashSet<[u8; 32]>,
     startup: Option<bool>,
     token_addresses: Option<HashSet<Pubkey>>,
 }
@@ -22,6 +23,7 @@ impl AccountSelector {
         let Accounts {
             owners,
             all_tokens,
+            pubkeys,
             startup,
         } = config;
 
@@ -31,8 +33,15 @@ impl AccountSelector {
             .collect::<Result<_, _>>()
             .context("Failed to parse account owner keys")?;
 
+        let pubkeys = pubkeys
+            .into_iter()
+            .map(|s| s.parse().map(Pubkey::to_bytes))
+            .collect::<Result<_, _>>()
+            .context("Failed to parse account pubkeys")?;
+
         Ok(Self {
             owners,
+            pubkeys,
             startup,
             token_addresses: if all_tokens {
                 None
@@ -63,7 +72,9 @@ impl AccountSelector {
     pub fn is_selected(&self, acct: &ReplicaAccountInfo, is_startup: bool) -> bool {
         let ReplicaAccountInfo { owner, data, .. } = *acct;
 
-        if self.startup.map_or(false, |s| is_startup != s) || !self.owners.contains(owner) {
+        if self.startup.map_or(false, |s| is_startup != s)
+            || !(self.owners.contains(owner) || self.pubkeys.contains(acct.pubkey))
+        {
             return false;
         }
 
