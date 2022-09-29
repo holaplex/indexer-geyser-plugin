@@ -57,6 +57,9 @@ pub struct Accounts {
     #[serde(default)]
     pub pubkeys: HashSet<String>,
 
+    #[serde(default)]
+    pub mints: HashSet<String>,
+
     /// Filter for changing how to interpret the `is_startup` flag.
     ///
     /// This option has three states:

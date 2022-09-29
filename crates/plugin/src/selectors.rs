@@ -14,6 +14,7 @@ use crate::{
 pub struct AccountSelector {
     owners: HashSet<[u8; 32]>,
     pubkeys: HashSet<[u8; 32]>,
+    mints: HashSet<Pubkey>,
     startup: Option<bool>,
     token_addresses: Option<HashSet<Pubkey>>,
 }
@@ -24,6 +25,7 @@ impl AccountSelector {
             owners,
             all_tokens,
             pubkeys,
+            mints,
             startup,
         } = config;
 
@@ -39,9 +41,16 @@ impl AccountSelector {
             .collect::<Result<_, _>>()
             .context("Failed to parse account pubkeys")?;
 
+        let mints = mints
+            .into_iter()
+            .map(|s| s.parse())
+            .collect::<Result<_, _>>()
+            .context("Failed to parse token account mint addresses")?;
+
         Ok(Self {
             owners,
             pubkeys,
+            mints,
             startup,
             token_addresses: if all_tokens {
                 None
@@ -83,7 +92,9 @@ impl AccountSelector {
                 let token_account = TokenAccount::unpack_from_slice(data);
 
                 if let Ok(token_account) = token_account {
-                    if token_account.amount > 1 || addrs.contains(&token_account.mint) {
+                    if (token_account.amount > 1 || addrs.contains(&token_account.mint))
+                        && !self.mints.contains(&token_account.mint)
+                    {
                         return false;
                     }
                 }
