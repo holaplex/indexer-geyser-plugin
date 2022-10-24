@@ -14,8 +14,9 @@ use crate::{
 pub struct AccountSelector {
     owners: HashSet<[u8; 32]>,
     pubkeys: HashSet<[u8; 32]>,
+    mints: HashSet<Pubkey>,
     startup: Option<bool>,
-    token_addresses: Option<HashSet<Pubkey>>,
+    token_reg: Option<HashSet<Pubkey>>,
 }
 
 impl AccountSelector {
@@ -24,6 +25,7 @@ impl AccountSelector {
             owners,
             all_tokens,
             pubkeys,
+            mints,
             startup,
         } = config;
 
@@ -39,23 +41,37 @@ impl AccountSelector {
             .collect::<Result<_, _>>()
             .context("Failed to parse account pubkeys")?;
 
-        Ok(Self {
+        let mints = mints
+            .into_iter()
+            .map(|s| s.parse())
+            .collect::<Result<_, _>>()
+            .context("Failed to parse token account mint addresses")?;
+
+        let mut ret = Self {
             owners,
             pubkeys,
+            mints,
             startup,
-            token_addresses: if all_tokens {
+            token_reg: if all_tokens {
                 None
             } else {
                 Some(HashSet::new())
             },
-        })
+        };
+
+        // Don't screen tokens if we're never going to return them
+        if !ret.owners.contains(TOKEN_KEY.as_ref()) {
+            ret.token_reg = None;
+        }
+
+        Ok(ret)
     }
 
     /// Lazy-load the token addresses.  Fails if token addresses are not wanted
     /// or if they have already been loaded.
-    pub fn init_tokens(&mut self, addrs: HashSet<Pubkey>) {
-        assert!(self.token_addresses.as_ref().unwrap().is_empty());
-        self.token_addresses = Some(addrs);
+    pub fn init_token_registry(&mut self, addrs: HashSet<Pubkey>) {
+        assert!(self.token_reg.as_ref().unwrap().is_empty());
+        self.token_reg = Some(addrs);
     }
 
     #[inline]
@@ -64,30 +80,44 @@ impl AccountSelector {
     }
 
     #[inline]
-    pub fn screen_tokens(&self) -> bool {
-        self.token_addresses.is_some()
+    pub fn screen_token_registry(&self) -> bool {
+        self.token_reg.is_some()
     }
 
     #[inline]
     pub fn is_selected(&self, acct: &ReplicaAccountInfo, is_startup: bool) -> bool {
         let ReplicaAccountInfo { owner, data, .. } = *acct;
 
-        if self.startup.map_or(false, |s| is_startup != s)
-            || !(self.owners.contains(owner) || self.pubkeys.contains(acct.pubkey))
-        {
+        if self.startup.map_or(false, |s| is_startup != s) {
             return false;
         }
 
-        if owner == TOKEN_KEY.as_ref() && data.len() == TokenAccount::get_packed_len() {
-            if let Some(ref addrs) = self.token_addresses {
-                let token_account = TokenAccount::unpack_from_slice(data);
+        if self.pubkeys.contains(acct.pubkey) {
+            return true;
+        }
 
-                if let Ok(token_account) = token_account {
-                    if token_account.amount > 1 || addrs.contains(&token_account.mint) {
-                        return false;
-                    }
-                }
-            }
+        let token = if (self.token_reg.is_some() || !self.mints.is_empty())
+            && owner == TOKEN_KEY.as_ref()
+            && data.len() == TokenAccount::get_packed_len()
+        {
+            TokenAccount::unpack_from_slice(data).ok()
+        } else {
+            None
+        };
+
+        if token.map_or(false, |t| self.mints.contains(&t.mint)) {
+            return true;
+        }
+
+        if !self.owners.contains(owner) {
+            return false;
+        }
+
+        if token
+            .zip(self.token_reg.as_ref())
+            .map_or(false, |(t, r)| t.amount > 1 || r.contains(&t.mint))
+        {
+            return false;
         }
 
         true
@@ -113,10 +143,17 @@ impl InstructionSelector {
             .collect::<Result<_, _>>()
             .context("Failed to parse instruction program keys")?;
 
-        Ok(Self {
+        let mut ret = Self {
             programs,
             screen_tokens: !all_token_calls,
-        })
+        };
+
+        // Don't screen token calls if we're never going to return them
+        if !ret.programs.contains(&TOKEN_KEY) {
+            ret.screen_tokens = false;
+        }
+
+        Ok(ret)
     }
 
     #[inline]
