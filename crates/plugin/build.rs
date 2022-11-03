@@ -9,10 +9,8 @@ fn run(c: &mut Command, name: impl Display) -> Output {
     let output = c.output().unwrap();
 
     if !output.status.success() {
-        str::from_utf8(&*output.stdout)
-            .map(|s| print!("{}", s))
-            .ok();
-        str::from_utf8(&*output.stderr)
+        str::from_utf8(&output.stdout).map(|s| print!("{}", s)).ok();
+        str::from_utf8(&output.stderr)
             .map(|s| eprint!("{}", s))
             .ok();
         println!(
@@ -55,21 +53,21 @@ fn main() {
 
             let rev = run(
                 Command::new("git")
-                    .args(&["rev-parse", "--short", "HEAD"])
+                    .args(["rev-parse", "--short", "HEAD"])
                     .current_dir(toplevel),
                 "git rev-parse",
             );
 
             let status = run(
                 Command::new("git")
-                    .args(&["status", "--porcelain"])
+                    .args(["status", "--porcelain"])
                     .current_dir(toplevel),
                 "git status",
             );
 
             let ls_files = run(
                 Command::new("git")
-                    .args(&["ls-files", "--full-name"])
+                    .args(["ls-files", "--full-name"])
                     .current_dir(toplevel),
                 "git ls-files",
             );
@@ -105,11 +103,7 @@ fn main() {
             );
 
             let branch = run(
-                Command::new("git").args(&[
-                    "branch",
-                    "--show-current",
-                    "--format=%(refname:short)",
-                ]),
+                Command::new("git").args(["branch", "--show-current", "--format=%(refname:short)"]),
                 "git branch",
             );
 
@@ -123,7 +117,7 @@ fn main() {
 
             let remote_url = run(
                 Command::new("git")
-                    .args(&["remote", "get-url"])
+                    .args(["remote", "get-url"])
                     .arg(str::from_utf8(&remote.stdout).unwrap().trim()),
                 "git remote",
             );
