@@ -10,13 +10,49 @@ use crate::{
     prelude::*,
 };
 
+#[derive(Debug, Clone, Copy)]
+enum Heuristic<T> {
+    Used(T),
+    Unused,
+}
+
+impl<T> Heuristic<T> {
+    fn try_get(&self) -> Option<&T> {
+        match self {
+            Self::Used(v) => Some(v),
+            Self::Unused => None,
+        }
+    }
+
+    fn get(&self) -> &T {
+        match self {
+            Self::Used(v) => v,
+            Self::Unused => panic!("Attempted to use heuristic marked as unused"),
+        }
+    }
+
+    fn get_mut(&mut self) -> &mut T {
+        match self {
+            Self::Used(v) => v,
+            Self::Unused => panic!("Attempted to use heuristic marked as unused"),
+        }
+    }
+
+    fn into_inner(self) -> T {
+        match self {
+            Self::Used(v) => v,
+            Self::Unused => panic!("Attempted to use heuristic marked as unused"),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct AccountSelector {
     owners: HashSet<[u8; 32]>,
     pubkeys: HashSet<[u8; 32]>,
     mints: HashSet<Pubkey>,
     startup: Option<bool>,
-    token_reg: Option<HashSet<Pubkey>>,
+    token_reg: Heuristic<Option<HashSet<Pubkey>>>,
 }
 
 impl AccountSelector {
@@ -52,16 +88,16 @@ impl AccountSelector {
             pubkeys,
             mints,
             startup,
-            token_reg: if all_tokens {
+            token_reg: Heuristic::Used(if all_tokens {
                 None
             } else {
                 Some(HashSet::new())
-            },
+            }),
         };
 
         // Don't screen tokens if we're never going to return them
         if !ret.owners.contains(TOKEN_KEY.as_ref()) {
-            ret.token_reg = None;
+            ret.token_reg = Heuristic::Unused;
         }
 
         Ok(ret)
@@ -70,8 +106,8 @@ impl AccountSelector {
     /// Lazy-load the token addresses.  Fails if token addresses are not wanted
     /// or if they have already been loaded.
     pub fn init_token_registry(&mut self, addrs: HashSet<Pubkey>) {
-        assert!(self.token_reg.as_ref().unwrap().is_empty());
-        self.token_reg = Some(addrs);
+        assert!(self.token_reg.get().as_ref().unwrap().is_empty());
+        *self.token_reg.get_mut() = Some(addrs);
     }
 
     #[inline]
@@ -81,7 +117,7 @@ impl AccountSelector {
 
     #[inline]
     pub fn screen_token_registry(&self) -> bool {
-        self.token_reg.is_some()
+        self.token_reg.try_get().map_or(false, Option::is_some)
     }
 
     #[inline]
@@ -96,16 +132,15 @@ impl AccountSelector {
             return true;
         }
 
-        let token = if (self.token_reg.is_some() || !self.mints.is_empty())
-            && owner == TOKEN_KEY.as_ref()
-            && data.len() == TokenAccount::get_packed_len()
-        {
-            TokenAccount::unpack_from_slice(data).ok()
-        } else {
-            None
-        };
+        let token = once_cell::unsync::Lazy::new(|| {
+            if owner == TOKEN_KEY.as_ref() && data.len() == TokenAccount::get_packed_len() {
+                TokenAccount::unpack_from_slice(data).ok()
+            } else {
+                None
+            }
+        });
 
-        if token.map_or(false, |t| self.mints.contains(&t.mint)) {
+        if !self.mints.is_empty() && token.map_or(false, |t| self.mints.contains(&t.mint)) {
             return true;
         }
 
@@ -113,10 +148,13 @@ impl AccountSelector {
             return false;
         }
 
-        if token
-            .zip(self.token_reg.as_ref())
-            .map_or(false, |(t, r)| t.amount > 1 || r.contains(&t.mint))
-        {
+        let maybe_not_nft = self.token_reg.get().as_ref().and_then(|reg| {
+            let token = token.as_ref()?;
+
+            Some(token.amount > 1 || reg.contains(&token.mint))
+        });
+
+        if maybe_not_nft.unwrap_or(false) {
             return false;
         }
 
@@ -127,7 +165,7 @@ impl AccountSelector {
 #[derive(Debug)]
 pub struct InstructionSelector {
     programs: HashSet<Pubkey>,
-    screen_tokens: bool,
+    screen_tokens: Heuristic<bool>,
 }
 
 impl InstructionSelector {
@@ -145,12 +183,12 @@ impl InstructionSelector {
 
         let mut ret = Self {
             programs,
-            screen_tokens: !all_token_calls,
+            screen_tokens: Heuristic::Used(!all_token_calls),
         };
 
         // Don't screen token calls if we're never going to return them
         if !ret.programs.contains(&TOKEN_KEY) {
-            ret.screen_tokens = false;
+            ret.screen_tokens = Heuristic::Unused;
         }
 
         Ok(ret)
@@ -167,7 +205,7 @@ impl InstructionSelector {
             return false;
         }
 
-        if self.screen_tokens && *pgm == TOKEN_KEY {
+        if self.screen_tokens.into_inner() && *pgm == TOKEN_KEY {
             if let [8, rest @ ..] = ins.data.as_slice() {
                 let amt = rest.try_into().map(u64::from_le_bytes);
 
