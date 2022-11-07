@@ -15,6 +15,8 @@ use crate::{
 pub enum Message {
     /// Refresh a table of cached data
     RefreshTable(String),
+    /// Reindex a given slot
+    ReindexSlot(u64),
 }
 
 /// AMQP configuration for job runners
