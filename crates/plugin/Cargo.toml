@@ -24,7 +24,6 @@ bs58 = "0.4.0"
 hashbrown = { version = "0.12.3", features = ["serde"] }
 hostname = "0.3.1"
 log = "0.4.17"
-once_cell = "1.16.0"
 parking_lot = "0.12.1"
 reqwest = "0.11.12"
 serde = { version = "1.0.147", features = ["derive"] }
@@ -49,6 +48,13 @@ features = [
   "sync",
   "time",
 ]
+
+[dependencies.selector]
+package = "holaplex-indexer-geyser-selector"
+version = "=0.1.0"
+path = "../selector"
+default-features = false
+features = ["solana-geyser-plugin-interface"]
 
 [dependencies.indexer-rabbitmq]
 package = "holaplex-indexer-rabbitmq"

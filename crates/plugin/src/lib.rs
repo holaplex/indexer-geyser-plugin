@@ -25,7 +25,6 @@ pub(crate) mod prelude {
 pub(crate) mod config;
 pub(crate) mod metrics;
 mod plugin;
-pub(crate) mod selectors;
 pub(crate) mod sender;
 
 pub use plugin::GeyserPluginRabbitMq;

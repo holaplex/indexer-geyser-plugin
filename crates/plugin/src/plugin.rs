@@ -6,11 +6,9 @@ use indexer_rabbitmq::geyser::{
     AccountUpdate, InstructionIndex, InstructionNotify, Message, SlotStatus as RmqSlotStatus,
     SlotStatusUpdate,
 };
+use selector::{AccountSelector, InstructionSelector};
 use solana_geyser_plugin_interface::geyser_plugin_interface::SlotStatus;
 use solana_program::{instruction::CompiledInstruction, message::AccountKeys};
-
-pub(crate) static TOKEN_KEY: Pubkey =
-    solana_program::pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
 use serde::Deserialize;
 
@@ -22,7 +20,6 @@ use crate::{
     },
     metrics::{Counter, Metrics},
     prelude::*,
-    selectors::{AccountSelector, InstructionSelector},
     sender::Sender,
 };
 
