@@ -1,8 +1,23 @@
 use hashbrown::HashSet;
-use solana_program::instruction::CompiledInstruction;
 use solana_program::pubkey::Pubkey;
 
 use crate::{config::Instructions, Error, Heuristic, Result};
+
+/// Abstraction over a Solana instruction container
+#[allow(clippy::module_name_repetitions)]
+pub trait InstructionInfo<'a>: 'a {
+    /// An iterator over the input account indices of this instruction
+    type AccountIndices: IntoIterator<Item = u8> + 'a;
+
+    /// The index of this instruction's target program
+    fn program_index(&self) -> u8;
+
+    /// The indices of this instruction's input accounts
+    fn account_indices(&self) -> Self::AccountIndices;
+
+    /// The data contained in this instruction
+    fn data(&self) -> &[u8];
+}
 
 /// Helper for performing screening logic on Solana instructions
 #[derive(Debug)]
@@ -50,30 +65,40 @@ impl Selector {
 
     /// Returns true if the given instruction addressed to the given program
     /// has been requested by this selector's configuration
+    ///
+    /// # Errors
+    /// This function fails if an input account or program address cannot be
+    /// retrieved
     #[inline]
-    #[must_use]
-    pub fn is_selected(&self, pgm: &Pubkey, ins: &CompiledInstruction) -> bool {
+    pub fn is_selected<'a>(
+        &self,
+        get_acct: impl Fn(u8) -> Option<&'a Pubkey>,
+        ins: &impl InstructionInfo<'a>,
+    ) -> Result<bool> {
+        let pgm = ins.program_index();
+        let pgm = get_acct(pgm).ok_or(Error::InstructionMissingAccount(pgm))?;
         if !self.programs.contains(pgm) {
-            return false;
+            return Ok(false);
         }
 
         if self.screen_tokens.into_inner() && *pgm == spl_token::id() {
-            if let [8, rest @ ..] = ins.data.as_slice() {
+            let data = ins.data();
+            if let [8, rest @ ..] = data {
                 let amt = rest.try_into().map(u64::from_le_bytes);
 
                 if !matches!(amt, Ok(1)) {
-                    return false;
+                    return Ok(false);
                 }
 
                 debug_assert_eq!(
-                    ins.data,
+                    data,
                     spl_token::instruction::TokenInstruction::Burn { amount: 1_u64 }.pack(),
                 );
             } else {
-                return false;
+                return Ok(false);
             }
         }
 
-        true
+        Ok(true)
     }
 }

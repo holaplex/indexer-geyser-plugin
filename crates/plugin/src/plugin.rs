@@ -20,7 +20,7 @@ use crate::{
     },
     metrics::{Counter, Metrics},
     prelude::*,
-    selector::AccountShim,
+    selector::{AccountShim, CompiledInstructionShim},
     sender::Sender,
 };
 
@@ -308,13 +308,13 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
             slot: u64,
             txn_signature: &[u8],
         ) -> anyhow::Result<Option<Message>> {
+            if !sel.is_selected(|i| keys.get(i as usize), &CompiledInstructionShim(ins))? {
+                return Ok(None);
+            }
+
             let program = *keys
                 .get(ins.program_id_index as usize)
                 .ok_or_else(|| anyhow!("Couldn't get program ID for instruction"))?;
-
-            if !sel.is_selected(&program, ins) {
-                return Ok(None);
-            }
 
             let accounts = ins
                 .accounts

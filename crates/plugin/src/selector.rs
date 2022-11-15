@@ -1,6 +1,6 @@
 use crate::interface::ReplicaAccountInfo;
 use selector::prelude::*;
-// use solana_program::message;
+use solana_program::instruction::CompiledInstruction;
 
 #[repr(transparent)]
 pub struct AccountShim<'a>(pub &'a ReplicaAccountInfo<'a>);
@@ -22,12 +22,21 @@ impl<'a> AccountInfo for AccountShim<'a> {
     }
 }
 
-// #[repr(transparent)]
-// pub struct AccountKeyShim<'a>(pub message::AccountKeys<'a>);
+#[repr(transparent)]
+pub struct CompiledInstructionShim<'a>(pub &'a CompiledInstruction);
 
-// impl<'a> AccountKeys for AccountKeyShim<'a> {
-//     #[inline]
-//     fn get(&self, idx: usize) -> Option<&indexer_rabbitmq::geyser::Pubkey> {
-//         self.0.get(idx)
-//     }
-// }
+impl<'a> InstructionInfo<'a> for CompiledInstructionShim<'a> {
+    type AccountIndices = std::iter::Copied<std::slice::Iter<'a, u8>>;
+
+    fn program_index(&self) -> u8 {
+        self.0.program_id_index
+    }
+
+    fn account_indices(&self) -> Self::AccountIndices {
+        self.0.accounts.iter().copied()
+    }
+
+    fn data(&self) -> &[u8] {
+        &self.0.data
+    }
+}

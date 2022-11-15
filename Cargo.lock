@@ -1315,6 +1315,7 @@ dependencies = [
  "solana-logger",
  "solana-metrics",
  "solana-program",
+ "solana-transaction-status",
  "spl-token",
  "tokio",
  "tokio-executor-trait",

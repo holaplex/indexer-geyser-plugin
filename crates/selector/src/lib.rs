@@ -14,11 +14,11 @@ pub mod config;
 mod instruction;
 
 pub use account::{AccountInfo, Selector as AccountSelector};
-pub use instruction::Selector as InstructionSelector;
+pub use instruction::{InstructionInfo, Selector as InstructionSelector};
 
 /// Helper traits exported by this crate
 pub mod prelude {
-    pub use super::AccountInfo;
+    pub use super::{AccountInfo, InstructionInfo};
 }
 
 /// An error originating in this crate
@@ -36,12 +36,15 @@ pub enum Error {
         &'static str,
         #[source] Box<dyn std::error::Error + Send + Sync + 'static>,
     ),
+    /// An error occurred fetching an account for an instruction
+    #[error("Error reading instruction: no account with index {0}")]
+    InstructionMissingAccount(u8),
 }
 
 pub(crate) type Result<T, E = Error> = std::result::Result<T, E>;
 
 #[derive(Debug, Clone, Copy)]
-enum Heuristic<T> {
+pub(crate) enum Heuristic<T> {
     Used(T),
     Unused,
 }
