@@ -21,9 +21,8 @@ serde = { version = "1.0.147", features = ["derive"] }
 thiserror = "1.0.37"
 
 # TODO: tighten the >=1.9 bounds once more things support 1.10
-solana-geyser-plugin-interface = { version = "~1.10.39", optional = true }
 solana-program = ">=1.9, <1.11"
-spl-token = "3"
+spl-token = ">=3.2, <3.6"
 
 [dependencies.indexer-rabbitmq]
 package = "holaplex-indexer-rabbitmq"

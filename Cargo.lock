@@ -1274,7 +1274,6 @@ dependencies = [
  "log",
  "once_cell",
  "serde",
- "solana-geyser-plugin-interface",
  "solana-program",
  "spl-token",
  "thiserror",

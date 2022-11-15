@@ -20,6 +20,7 @@ use crate::{
     },
     metrics::{Counter, Metrics},
     prelude::*,
+    selector::AccountShim,
     sender::Sender,
 };
 
@@ -217,7 +218,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
 
                 match account {
                     ReplicaAccountInfoVersions::V0_0_1(acct) => {
-                        if !this.acct_sel.is_selected(acct, is_startup) {
+                        if !this.acct_sel.is_selected(&AccountShim(acct), is_startup) {
                             return Ok(());
                         }
 

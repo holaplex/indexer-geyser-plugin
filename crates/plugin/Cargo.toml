@@ -54,7 +54,6 @@ package = "holaplex-indexer-geyser-selector"
 version = "=0.1.0"
 path = "../selector"
 default-features = false
-features = ["solana-geyser-plugin-interface"]
 
 [dependencies.indexer-rabbitmq]
 package = "holaplex-indexer-rabbitmq"
