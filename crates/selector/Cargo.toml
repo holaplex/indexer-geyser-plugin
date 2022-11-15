@@ -18,11 +18,12 @@ hashbrown = { version = "0.12.3", features = ["serde"] }
 log = "0.4.17"
 once_cell = "1.16.0"
 serde = { version = "1.0.147", features = ["derive"] }
-solana-geyser-plugin-interface = { version = "~1.10.39", optional = true }
-# TODO: tighten this bound once more things support 1.10
-solana-program = { version = ">=1.9", optional = true }
-spl-token = "3"
 thiserror = "1.0.37"
+
+# TODO: tighten the >=1.9 bounds once more things support 1.10
+solana-geyser-plugin-interface = { version = "~1.10.39", optional = true }
+solana-program = ">=1.9, <1.11"
+spl-token = "3"
 
 [dependencies.indexer-rabbitmq]
 package = "holaplex-indexer-rabbitmq"

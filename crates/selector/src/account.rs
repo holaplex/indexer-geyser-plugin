@@ -5,12 +5,16 @@ use spl_token::state::Account as TokenAccount;
 
 use crate::{config::Accounts, Error, Heuristic, Result};
 
+/// Abstraction over a Solana account container
 #[allow(clippy::module_name_repetitions)]
 pub trait AccountInfo {
+    /// The bytes representing this account's owner public key
     fn owner(&self) -> &[u8];
 
+    /// The bytes representing this account's public key
     fn pubkey(&self) -> &[u8];
 
+    /// The data contained in this account
     fn data(&self) -> &[u8];
 }
 
@@ -18,14 +22,17 @@ pub trait AccountInfo {
 impl<'a> AccountInfo
     for solana_geyser_plugin_interface::geyser_plugin_interface::ReplicaAccountInfo<'a>
 {
+    #[inline]
     fn owner(&self) -> &[u8] {
         self.owner
     }
 
+    #[inline]
     fn pubkey(&self) -> &[u8] {
         self.pubkey
     }
 
+    #[inline]
     fn data(&self) -> &[u8] {
         self.data
     }

@@ -13,8 +13,13 @@ mod account;
 pub mod config;
 mod instruction;
 
-pub use account::Selector as AccountSelector;
+pub use account::{AccountInfo, Selector as AccountSelector};
 pub use instruction::Selector as InstructionSelector;
+
+/// Helper traits exported by this crate
+pub mod prelude {
+    pub use super::AccountInfo;
+}
 
 /// An error originating in this crate
 #[derive(Debug, thiserror::Error)]
