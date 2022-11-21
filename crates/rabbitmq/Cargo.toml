@@ -21,10 +21,9 @@ http-indexer = ["solana-program", "suffix"]
 job-runner = []
 producer = ["suffix"]
 search-indexer = ["serde_json", "solana-program", "suffix"]
-suffix = ["clap"]
+suffix = []
 
 [dependencies]
-clap = { version = "4.0.22", default-features = false, features = ["env", "std"], optional = true }
 futures-util = "0.3.25"
 lapin = "2.1.1"
 log = "0.4.17"
