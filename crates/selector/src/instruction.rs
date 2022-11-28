@@ -13,7 +13,7 @@ pub trait InstructionInfo<'a>: 'a {
     fn program_index(&self) -> u8;
 
     /// The indices of this instruction's input accounts
-    fn account_indices(&self) -> Self::AccountIndices;
+    fn account_indices(&'a self) -> Self::AccountIndices;
 
     /// The data contained in this instruction
     fn data(&self) -> &[u8];
