@@ -6,7 +6,7 @@ use crate::{Error, Result};
 
 /// A suffix for an AMQP object, to avoid name collisions with staging or debug
 /// builds
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Suffix {
     /// This is a production name
     Production,

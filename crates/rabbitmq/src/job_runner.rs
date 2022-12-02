@@ -5,10 +5,20 @@ use std::time::Duration;
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    geyser::StartupType,
     queue_type::{Binding, QueueProps, RetryProps},
     suffix::Suffix,
     Result,
 };
+
+/// Message data for a slot reindex request
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+pub struct SlotReindex {
+    /// The slot ID to refresh
+    pub slot: u64,
+    /// The startup type of the AMQP queue to target
+    pub startup: StartupType,
+}
 
 /// Message data for a job dispatch request
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -16,7 +26,7 @@ pub enum Message {
     /// Refresh a table of cached data
     RefreshTable(String),
     /// Reindex a given slot
-    ReindexSlot(u64),
+    ReindexSlot(SlotReindex),
 }
 
 /// AMQP configuration for job runners
