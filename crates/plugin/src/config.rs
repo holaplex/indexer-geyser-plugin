@@ -1,10 +1,10 @@
-use hashbrown::HashSet;
+use selector::{
+    config::{Accounts, Instructions},
+    AccountSelector, InstructionSelector,
+};
 use serde::Deserialize;
 
-use crate::{
-    prelude::*,
-    selectors::{AccountSelector, InstructionSelector},
-};
+use crate::prelude::*;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -46,49 +46,6 @@ pub struct Jobs {
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Metrics {
     pub config: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct Accounts {
-    #[serde(default)]
-    pub owners: HashSet<String>,
-
-    #[serde(default)]
-    pub pubkeys: HashSet<String>,
-
-    #[serde(default)]
-    pub mints: HashSet<String>,
-
-    /// Filter for changing how to interpret the `is_startup` flag.
-    ///
-    /// This option has three states:
-    ///  - `None`: Ignore the `is_startup` flag and send all updates.
-    ///  - `Some(true)`: Only send updates when `is_startup` is `true`.
-    ///  - `Some(false)`: Only send updates when `is_startup` is `false`.
-    #[serde(default)]
-    pub startup: Option<bool>,
-
-    /// Set to true to disable heuristics to reduce the number of incoming
-    /// token account updates.  Has no effect if the spl-token pubkey is not in
-    /// the owners list.
-    #[serde(default)]
-    pub all_tokens: bool,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct Instructions {
-    #[serde(default)]
-    pub programs: HashSet<String>,
-
-    /// Set to true to disable heuristics to reduce the number of incoming
-    /// token instructions.  Has no effect if the spl-token pubkey is not in the
-    /// programs list.  Currently the heuristics are tailored towards NFT burns,
-    /// only passing through instructions whose data indicates a burn of amount
-    /// 1.
-    #[serde(default)]
-    pub all_token_calls: bool,
 }
 
 impl Config {

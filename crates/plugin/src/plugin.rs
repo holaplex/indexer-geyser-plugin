@@ -6,11 +6,9 @@ use indexer_rabbitmq::geyser::{
     AccountUpdate, InstructionIndex, InstructionNotify, Message, SlotStatus as RmqSlotStatus,
     SlotStatusUpdate,
 };
+use selector::{AccountSelector, InstructionSelector};
 use solana_geyser_plugin_interface::geyser_plugin_interface::SlotStatus;
 use solana_program::{instruction::CompiledInstruction, message::AccountKeys};
-
-pub(crate) static TOKEN_KEY: Pubkey =
-    solana_program::pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
 use serde::Deserialize;
 
@@ -22,7 +20,7 @@ use crate::{
     },
     metrics::{Counter, Metrics},
     prelude::*,
-    selectors::{AccountSelector, InstructionSelector},
+    selector::{AccountShim, CompiledInstructionShim},
     sender::Sender,
 };
 
@@ -220,7 +218,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
 
                 match account {
                     ReplicaAccountInfoVersions::V0_0_1(acct) => {
-                        if !this.acct_sel.is_selected(acct, is_startup) {
+                        if !this.acct_sel.is_selected(&AccountShim(acct), is_startup) {
                             return Ok(());
                         }
 
@@ -310,13 +308,13 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
             slot: u64,
             txn_signature: &[u8],
         ) -> anyhow::Result<Option<Message>> {
+            if !sel.is_selected(|i| keys.get(i as usize), &CompiledInstructionShim(ins))? {
+                return Ok(None);
+            }
+
             let program = *keys
                 .get(ins.program_id_index as usize)
                 .ok_or_else(|| anyhow!("Couldn't get program ID for instruction"))?;
-
-            if !sel.is_selected(&program, ins) {
-                return Ok(None);
-            }
 
             let accounts = ins
                 .accounts

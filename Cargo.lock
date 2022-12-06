@@ -1266,6 +1266,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "holaplex-indexer-geyser-selector"
+version = "0.1.0"
+dependencies = [
+ "hashbrown 0.12.3",
+ "holaplex-indexer-rabbitmq",
+ "log",
+ "once_cell",
+ "serde",
+ "solana-program",
+ "spl-token",
+ "thiserror",
+]
+
+[[package]]
 name = "holaplex-indexer-rabbitmq"
 version = "0.3.1"
 dependencies = [
@@ -1288,10 +1302,10 @@ dependencies = [
  "anyhow",
  "bs58",
  "hashbrown 0.12.3",
+ "holaplex-indexer-geyser-selector",
  "holaplex-indexer-rabbitmq",
  "hostname",
  "log",
- "once_cell",
  "parking_lot",
  "reqwest",
  "serde",
@@ -1301,6 +1315,7 @@ dependencies = [
  "solana-logger",
  "solana-metrics",
  "solana-program",
+ "solana-transaction-status",
  "spl-token",
  "tokio",
  "tokio-executor-trait",
