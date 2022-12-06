@@ -15,14 +15,22 @@ impl<Q: QueueType> Producer<Q>
 where
     Q::Message: serde::Serialize,
 {
-    /// Construct a new producer from a [`QueueType`]
+    /// Construct a new producer from a [`QueueType`], creating a [`Channel`]
+    /// for it automatically.
     ///
     /// # Errors
     /// This function fails if the channel cannot be created and configured
     /// successfully.
+    #[inline]
     pub async fn new(conn: &Connection, ty: Q) -> Result<Self> {
-        let chan = conn.create_channel().await?;
+        Self::from_channel(conn.create_channel().await?, ty).await
+    }
 
+    /// Construct a new producer from a [`QueueType`]
+    ///
+    /// # Errors
+    /// This fucntion fails if the producer cannot be configured successfully.
+    pub async fn from_channel(chan: Channel, ty: Q) -> Result<Self> {
         ty.info().init_producer(&chan).await?;
 
         Ok(Self { chan, ty })

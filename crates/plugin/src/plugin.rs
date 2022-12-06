@@ -2,11 +2,13 @@ use std::{env, sync::Arc};
 
 use anyhow::Context;
 use hashbrown::HashSet;
-use indexer_rabbitmq::geyser::{AccountUpdate, InstructionNotify, Message};
+use indexer_rabbitmq::geyser::{
+    AccountUpdate, InstructionIndex, InstructionNotify, Message, SlotStatus as RmqSlotStatus,
+    SlotStatusUpdate,
+};
+use selector::{AccountSelector, InstructionSelector};
+use solana_geyser_plugin_interface::geyser_plugin_interface::SlotStatus;
 use solana_program::{instruction::CompiledInstruction, message::AccountKeys};
-
-pub(crate) static TOKEN_KEY: Pubkey =
-    solana_program::pubkey!("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
 
 use serde::Deserialize;
 
@@ -18,16 +20,16 @@ use crate::{
     },
     metrics::{Counter, Metrics},
     prelude::*,
-    selectors::{AccountSelector, InstructionSelector},
+    selector::{AccountShim, CompiledInstructionShim},
     sender::Sender,
 };
 
 const UNINIT: &str = "RabbitMQ plugin not initialized yet!";
 
 #[inline]
-fn custom_err<'a, E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>>(
-    counter: &'a Counter,
-) -> impl FnOnce(E) -> GeyserPluginError + 'a {
+fn custom_err<E: Into<Box<dyn std::error::Error + Send + Sync + 'static>>>(
+    counter: &'_ Counter,
+) -> impl FnOnce(E) -> GeyserPluginError + '_ {
     |e| {
         counter.log(1);
         GeyserPluginError::Custom(e.into())
@@ -216,7 +218,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
 
                 match account {
                     ReplicaAccountInfoVersions::V0_0_1(acct) => {
-                        if !this.acct_sel.is_selected(acct, is_startup) {
+                        if !this.acct_sel.is_selected(&AccountShim(acct), is_startup) {
                             return Ok(());
                         }
 
@@ -260,6 +262,39 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
         )
     }
 
+    fn update_slot_status(
+        &mut self,
+        slot: u64,
+        parent: Option<u64>,
+        status: SlotStatus,
+    ) -> Result<()> {
+        self.with_inner(
+            || GeyserPluginError::SlotStatusUpdateError { msg: UNINIT.into() },
+            |this| {
+                this.metrics.recvs.log(1);
+
+                this.spawn(|this| async move {
+                    this.producer
+                        .send(Message::SlotStatusUpdate(SlotStatusUpdate {
+                            slot,
+                            parent,
+                            status: match status {
+                                SlotStatus::Processed => RmqSlotStatus::Processed,
+                                SlotStatus::Rooted => RmqSlotStatus::Rooted,
+                                SlotStatus::Confirmed => RmqSlotStatus::Confirmed,
+                            },
+                        }))
+                        .await;
+                    this.metrics.sends.log(1);
+
+                    Ok(())
+                });
+
+                Ok(())
+            },
+        )
+    }
+
     fn notify_transaction(
         &mut self,
         transaction: ReplicaTransactionInfoVersions,
@@ -268,17 +303,18 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
         #[inline]
         fn process_instruction(
             sel: &InstructionSelector,
-            ins: &CompiledInstruction,
+            (index, ins): (InstructionIndex, &CompiledInstruction),
             keys: &AccountKeys,
             slot: u64,
+            txn_signature: &[u8],
         ) -> anyhow::Result<Option<Message>> {
+            if !sel.is_selected(|i| keys.get(i as usize), &CompiledInstructionShim(ins))? {
+                return Ok(None);
+            }
+
             let program = *keys
                 .get(ins.program_id_index as usize)
                 .ok_or_else(|| anyhow!("Couldn't get program ID for instruction"))?;
-
-            if !sel.is_selected(&program, ins) {
-                return Ok(None);
-            }
 
             let accounts = ins
                 .accounts
@@ -298,6 +334,8 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                 data,
                 accounts,
                 slot,
+                txn_signature: txn_signature.to_vec(),
+                index,
             })))
         }
 
@@ -319,14 +357,32 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                         let msg = tx.transaction.message();
                         let keys = msg.account_keys();
 
-                        for ins in msg.instructions().iter().chain(
-                            tx.transaction_status_meta
-                                .inner_instructions
-                                .iter()
-                                .flatten()
-                                .flat_map(|i| i.instructions.iter()),
-                        ) {
-                            match process_instruction(&this.ins_sel, ins, &keys, slot) {
+                        let txn_signature = tx.signature.as_ref();
+
+                        for ins in msg
+                            .instructions()
+                            .iter()
+                            .enumerate()
+                            .map(|(i, ins)| (InstructionIndex::TopLevel(i), ins))
+                            .chain(
+                                tx.transaction_status_meta
+                                    .inner_instructions
+                                    .iter()
+                                    .flatten()
+                                    .flat_map(|ins| {
+                                        ins.instructions.iter().enumerate().map(|(i, inner)| {
+                                            (InstructionIndex::Inner(ins.index, i), inner)
+                                        })
+                                    }),
+                            )
+                        {
+                            match process_instruction(
+                                &this.ins_sel,
+                                ins,
+                                &keys,
+                                slot,
+                                txn_signature,
+                            ) {
                                 Ok(Some(m)) => {
                                     this.spawn(|this| async move {
                                         this.producer.send(m).await;

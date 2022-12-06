@@ -1,0 +1,32 @@
+[package]
+name = "holaplex-indexer-geyser-selector"
+version = "0.1.0"
+authors = [
+  "Holaplex Engineering <engineering@holaplex.com>",
+]
+edition = "2021"
+description = "Core account selector logic for holaplex-indexer"
+documentation = "https://docs.rs/holaplex-indexer-rabbitmq"
+readme = "../../README.md"
+repository = "https://github.com/holaplex/indexer"
+license = "AGPL-3.0-or-later"
+keywords = ["solana", "metaplex", "holaplex", "web3", "rabbitmq"]
+categories = ["cryptography::cryptocurrencies", "web-programming"]
+
+[dependencies]
+hashbrown = { version = "0.12.3", features = ["serde"] }
+log = "0.4.17"
+once_cell = "1.16.0"
+serde = { version = "1.0.147", features = ["derive"] }
+thiserror = "1.0.37"
+
+# TODO: tighten the >=1.9 bounds once more things support 1.10
+solana-program = ">=1.9, <1.11"
+spl-token = ">=3.2, <3.6"
+
+[dependencies.indexer-rabbitmq]
+package = "holaplex-indexer-rabbitmq"
+version = "=0.4.0"
+path = "../rabbitmq"
+default-features = false
+features = ["producer", "geyser"]

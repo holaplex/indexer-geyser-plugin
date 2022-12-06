@@ -2,13 +2,11 @@
 
 use std::fmt::Write;
 
-use clap::{Arg, ArgMatches, Command};
-
 use crate::{Error, Result};
 
 /// A suffix for an AMQP object, to avoid name collisions with staging or debug
 /// builds
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Suffix {
     /// This is a production name
     Production,
@@ -21,47 +19,6 @@ pub enum Suffix {
     ///
     /// This variant cannot be constructed from arguments.
     ProductionUnchecked,
-}
-
-impl clap::Args for Suffix {
-    fn augment_args(cmd: Command) -> Command {
-        cmd.arg(
-            Arg::new("STAGING")
-                .long("staging")
-                .env("STAGING")
-                .takes_value(false)
-                .help("Use a staging queue suffix rather than a debug or production one"),
-        )
-        .arg(
-            Arg::new("SUFFIX")
-                .takes_value(true)
-                .allow_invalid_utf8(true)
-                .required(false)
-                .help("An optional debug queue suffix")
-                .conflicts_with("STAGING"),
-        )
-    }
-
-    fn augment_args_for_update(cmd: Command) -> Command {
-        Self::augment_args(cmd)
-    }
-}
-
-impl clap::FromArgMatches for Suffix {
-    fn from_arg_matches(matches: &ArgMatches) -> Result<Self, clap::Error> {
-        Ok(if matches.is_present("STAGING") {
-            Self::Staging
-        } else if let Some(suffix) = matches.value_of_lossy("SUFFIX") {
-            Self::Debug(suffix.into_owned())
-        } else {
-            Self::Production
-        })
-    }
-
-    fn update_from_arg_matches(&mut self, matches: &ArgMatches) -> Result<(), clap::Error> {
-        *self = Self::from_arg_matches(matches)?;
-        Ok(())
-    }
 }
 
 impl Suffix {
