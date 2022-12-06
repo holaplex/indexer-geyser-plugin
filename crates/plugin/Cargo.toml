@@ -1,6 +1,6 @@
 [package]
 name = "holaplex-indexer-rabbitmq-geyser"
-version = "0.6.1"
+version = "0.7.0"
 authors = [
   "ryans <ryans@holaplex.com>",
 ]
@@ -58,7 +58,7 @@ default-features = false
 
 [dependencies.indexer-rabbitmq]
 package = "holaplex-indexer-rabbitmq"
-version = "=0.3.1"
+version = "=0.4.0"
 path = "../rabbitmq"
 default-features = false
 features = ["producer", "geyser"]
