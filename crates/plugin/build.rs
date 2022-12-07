@@ -35,12 +35,19 @@ fn main() {
         );
     }
 
-    println!(
-        "cargo:rustc-env=META_BUILD_PLATFORM=ptr{},{},{}",
+    print!(
+        "cargo:rustc-env=META_BUILD_PLATFORM=ptr{},{}",
         env::var("CARGO_CFG_TARGET_POINTER_WIDTH").unwrap(),
         env::var("CARGO_CFG_TARGET_ENDIAN").unwrap(),
-        env::var("CARGO_CFG_TARGET_FEATURE").unwrap(),
     );
+
+    if let Some(feat) = env::var_os("CARGO_CFG_TARGET_FEATURE") {
+        if !feat.is_empty() {
+            print!(",{}", feat.into_string().unwrap());
+        }
+    }
+
+    println!();
 
     let toplevel = Command::new("git")
         .arg("rev-parse")
