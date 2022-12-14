@@ -28,7 +28,7 @@ mod plugin;
 pub(crate) mod selector;
 pub(crate) mod sender;
 
-pub use plugin::GeyserPluginRabbitMq;
+pub(crate) use plugin::GeyserPluginRabbitMq;
 
 #[no_mangle]
 #[allow(improper_ctypes_definitions)]

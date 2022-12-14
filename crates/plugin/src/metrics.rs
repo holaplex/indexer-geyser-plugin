@@ -42,8 +42,12 @@ impl Counter {
 
 #[derive(Debug)]
 pub struct Metrics {
-    pub sends: Counter,
-    pub recvs: Counter,
+    pub acct_sends: Counter,
+    pub acct_recvs: Counter,
+    pub ins_sends: Counter,
+    pub txn_recvs: Counter,
+    pub status_sends: Counter,
+    pub status_recvs: Counter,
     pub errs: Counter,
     pub reconnects: Counter,
 }
@@ -51,8 +55,12 @@ pub struct Metrics {
 impl Metrics {
     pub fn new_rc() -> Arc<Self> {
         Arc::new(Self {
-            sends: Counter::new("geyser_sends", Level::Info),
-            recvs: Counter::new("geyser_recvs", Level::Info),
+            acct_sends: Counter::new("geyser_acct_sends", Level::Info),
+            acct_recvs: Counter::new("geyser_acct_recvs", Level::Info),
+            ins_sends: Counter::new("geyser_ins_sends", Level::Info),
+            txn_recvs: Counter::new("geyser_txn_recvs", Level::Info),
+            status_sends: Counter::new("geyser_status_sends", Level::Info),
+            status_recvs: Counter::new("geyser_status_recvs", Level::Info),
             errs: Counter::new("geyser_errs", Level::Error),
             reconnects: Counter::new("geyser_reconnects", Level::Error),
         })
