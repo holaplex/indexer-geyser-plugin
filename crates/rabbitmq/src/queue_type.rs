@@ -51,6 +51,26 @@ pub struct RetryProps {
     pub max_delay: Duration,
 }
 
+impl RetryProps {
+    #[inline]
+    fn dl_exchange(&self, props: &QueueProps) -> String {
+        #[allow(clippy::drop_ref)]
+        std::mem::drop(self); // self isn't used, but is required to exist for
+                              // this method to make sense
+        format!("dlx.{}", props.queue)
+    }
+
+    // returns (exchange, queue, triage_queue)
+    #[inline]
+    fn dl_info(&self, props: &QueueProps) -> (String, String, String) {
+        (
+            self.dl_exchange(props),
+            format!("dlq.{}", props.queue),
+            format!("triage.dlq.{}", props.queue),
+        )
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct QueueProps {
     pub exchange: String,
@@ -123,18 +143,6 @@ impl<'a> QueueInfo<'a> {
 
 #[cfg(feature = "consumer")]
 impl<'a> QueueInfo<'a> {
-    fn dl_exchange(self) -> String {
-        format!("dlx.{}", self.0.queue)
-    }
-
-    fn dl_queue(self) -> String {
-        format!("dlq.{}", self.0.queue)
-    }
-
-    fn dl_triage_queue(self) -> String {
-        format!("triage.dlq.{}", self.0.queue)
-    }
-
     async fn queue_declare(self, chan: &Channel) -> Result<()> {
         let mut queue_fields = FieldTable::default();
 
@@ -143,15 +151,17 @@ impl<'a> QueueInfo<'a> {
             AMQPValue::LongLongInt(self.0.max_len_bytes),
         );
 
-        queue_fields.insert(
-            "x-dead-letter-exchange".into(),
-            AMQPValue::LongString(self.dl_exchange().into()),
-        );
+        if let Some(ref retry) = self.0.retry {
+            queue_fields.insert(
+                "x-dead-letter-exchange".into(),
+                AMQPValue::LongString(retry.dl_exchange(self.0).into()),
+            );
 
-        queue_fields.insert(
-            "x-dead-letter-routing-key".into(),
-            AMQPValue::LongString(DLX_TRIAGE_KEY.into()),
-        );
+            queue_fields.insert(
+                "x-dead-letter-routing-key".into(),
+                AMQPValue::LongString(DLX_TRIAGE_KEY.into()),
+            );
+        }
 
         chan.queue_declare(
             self.0.queue.as_ref(),
@@ -167,16 +177,19 @@ impl<'a> QueueInfo<'a> {
     }
 
     /// Returns (`dl_exchange`, `dl_queue`, `dl_triage_queue`)
-    async fn dl_exchange_declare(self, chan: &Channel) -> Result<(String, String, String)> {
+    async fn dl_exchange_declare(self, chan: &Channel) -> Result<Option<(String, String, String)>> {
         let mut exchg_fields = FieldTable::default();
+
+        let retry = if let Some(retry) = self.0.retry {
+            retry
+        } else {
+            return Ok(None);
+        };
 
         exchg_fields.insert(
             "x-message-ttl".into(),
             AMQPValue::LongLongInt(
-                self.0
-                    .retry
-                    .as_ref()
-                    .ok_or(Error::InvalidQueueType("Missing retry info"))?
+                retry
                     .max_delay
                     .as_millis()
                     .try_into()
@@ -184,7 +197,7 @@ impl<'a> QueueInfo<'a> {
             ),
         );
 
-        let exchg = self.dl_exchange();
+        let (exchg, queue, triage) = retry.dl_info(self.0);
 
         chan.exchange_declare(
             exchg.as_ref(),
@@ -197,7 +210,7 @@ impl<'a> QueueInfo<'a> {
         )
         .await?;
 
-        Ok((exchg, self.dl_queue(), self.dl_triage_queue()))
+        Ok(Some((exchg, queue, triage)))
     }
 
     pub(crate) async fn init_consumer(
@@ -205,7 +218,9 @@ impl<'a> QueueInfo<'a> {
         chan: &Channel,
         tag: impl AsRef<str>,
     ) -> Result<Consumer> {
-        self.dl_exchange_declare(chan).await?;
+        if self.0.retry.is_some() {
+            self.dl_exchange_declare(chan).await?;
+        }
         self.exchange_declare(chan).await?;
         self.queue_declare(chan).await?;
 
@@ -235,7 +250,10 @@ impl<'a> QueueInfo<'a> {
         self,
         chan: &Channel,
     ) -> Result<(Consumer, DlConsumerInfo)> {
-        let (exchange, queue, triage_queue) = self.dl_exchange_declare(chan).await?;
+        let (exchange, queue, triage_queue) = self
+            .dl_exchange_declare(chan)
+            .await?
+            .ok_or(Error::InvalidQueueType("Missing retry info"))?;
 
         {
             let mut queue_fields = FieldTable::default();

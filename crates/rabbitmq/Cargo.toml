@@ -1,6 +1,6 @@
 [package]
 name = "holaplex-indexer-rabbitmq"
-version = "0.4.0"
+version = "0.4.1"
 authors = [
   "ryans <ryans@holaplex.com>",
 ]
@@ -29,9 +29,9 @@ lapin = "2.1.1"
 log = "0.4.17"
 rand = "0.8.5"
 rmp-serde = "1.1.1"
-serde = { version = "1.0.147", features = ["derive"] }
-serde_json = { version = "1.0.87", optional = true }
+serde = { version = "1.0.149", features = ["derive"] }
+serde_json = { version = "1.0.89", optional = true }
 # TODO: tighten this bound once more things support 1.10
-solana-program = { version = ">=1.9,<1.11", optional = true }
+solana-program = { version = ">=1.9,<1.14", optional = true }
 strum = { version = "0.24.1", features = ["derive"] }
 thiserror = "1.0.37"

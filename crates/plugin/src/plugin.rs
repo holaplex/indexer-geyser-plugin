@@ -214,7 +214,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
         self.with_inner(
             || GeyserPluginError::AccountsUpdateError { msg: UNINIT.into() },
             |this| {
-                this.metrics.recvs.log(1);
+                this.metrics.acct_recvs.log(1);
 
                 match account {
                     ReplicaAccountInfoVersions::V0_0_1(acct) => {
@@ -250,7 +250,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                                     is_startup,
                                 }))
                                 .await;
-                            this.metrics.sends.log(1);
+                            this.metrics.acct_sends.log(1);
 
                             Ok(())
                         });
@@ -271,7 +271,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
         self.with_inner(
             || GeyserPluginError::SlotStatusUpdateError { msg: UNINIT.into() },
             |this| {
-                this.metrics.recvs.log(1);
+                this.metrics.status_recvs.log(1);
 
                 this.spawn(|this| async move {
                     this.producer
@@ -285,7 +285,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                             },
                         }))
                         .await;
-                    this.metrics.sends.log(1);
+                    this.metrics.status_sends.log(1);
 
                     Ok(())
                 });
@@ -346,7 +346,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                     return Ok(());
                 }
 
-                this.metrics.recvs.log(1);
+                this.metrics.txn_recvs.log(1);
 
                 match transaction {
                     ReplicaTransactionInfoVersions::V0_0_1(tx) => {
@@ -386,7 +386,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                                 Ok(Some(m)) => {
                                     this.spawn(|this| async move {
                                         this.producer.send(m).await;
-                                        this.metrics.sends.log(1);
+                                        this.metrics.ins_sends.log(1);
 
                                         Ok(())
                                     });
