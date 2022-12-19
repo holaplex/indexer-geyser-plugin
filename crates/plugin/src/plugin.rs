@@ -346,19 +346,21 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                     return Ok(());
                 }
 
-                this.metrics.txn_recvs.log(1);
-
                 match transaction {
                     ReplicaTransactionInfoVersions::V0_0_1(tx) => {
                         if matches!(tx.transaction_status_meta.status, Err(..)) {
+                            this.metrics.txn_errs.log(1);
                             return Ok(());
                         }
+
+                        this.metrics.txn_recvs.log(1);
 
                         let msg = tx.transaction.message();
                         let keys = msg.account_keys();
 
                         let txn_signature = tx.signature.as_ref();
 
+                        let mut any_sent = false;
                         for ins in msg
                             .instructions()
                             .iter()
@@ -384,6 +386,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                                 txn_signature,
                             ) {
                                 Ok(Some(m)) => {
+                                    any_sent = true;
                                     this.spawn(|this| async move {
                                         this.producer.send(m).await;
                                         this.metrics.ins_sends.log(1);
@@ -397,6 +400,10 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                                     this.metrics.errs.log(1);
                                 },
                             }
+                        }
+
+                        if any_sent {
+                            this.metrics.txn_sends.log(1);
                         }
                     },
                 }
