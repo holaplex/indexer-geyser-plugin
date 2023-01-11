@@ -51,7 +51,6 @@ impl QueueType {
                 queue,
                 binding: Binding::Fanout,
                 prefetch: 1,
-                max_len_bytes: 100 * 1024 * 1024, // 100 MiB
                 auto_delete: suffix.is_debug(),
                 retry: Some(RetryProps {
                     max_tries: 5,

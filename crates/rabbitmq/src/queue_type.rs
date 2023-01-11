@@ -77,7 +77,6 @@ pub struct QueueProps {
     pub queue: String,
     pub binding: Binding,
     pub prefetch: u16,
-    pub max_len_bytes: i64,
     pub auto_delete: bool,
     pub retry: Option<RetryProps>,
 }
@@ -145,11 +144,6 @@ impl<'a> QueueInfo<'a> {
 impl<'a> QueueInfo<'a> {
     async fn queue_declare(self, chan: &Channel) -> Result<()> {
         let mut queue_fields = FieldTable::default();
-
-        queue_fields.insert(
-            "x-max-length-bytes".into(),
-            AMQPValue::LongLongInt(self.0.max_len_bytes),
-        );
 
         if let Some(ref retry) = self.0.retry {
             queue_fields.insert(
@@ -259,11 +253,6 @@ impl<'a> QueueInfo<'a> {
             let mut queue_fields = FieldTable::default();
 
             queue_fields.insert(
-                "x-max-length-bytes".into(),
-                AMQPValue::LongLongInt(self.0.max_len_bytes),
-            );
-
-            queue_fields.insert(
                 "x-dead-letter-exchange".into(),
                 AMQPValue::LongString(exchange.clone().into()),
             );
@@ -294,12 +283,6 @@ impl<'a> QueueInfo<'a> {
         }
 
         {
-            let mut queue_fields = FieldTable::default();
-            queue_fields.insert(
-                "x-max-length-bytes".into(),
-                AMQPValue::LongLongInt(self.0.max_len_bytes),
-            );
-
             // TODO: add a true DL queue
 
             chan.queue_declare(
@@ -308,7 +291,7 @@ impl<'a> QueueInfo<'a> {
                     auto_delete: self.0.auto_delete,
                     ..QueueDeclareOptions::default()
                 },
-                queue_fields,
+                FieldTable::default(),
             )
             .await?;
 
