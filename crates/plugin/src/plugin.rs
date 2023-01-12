@@ -15,12 +15,12 @@ use serde::Deserialize;
 use crate::{
     config::Config,
     interface::{
-        GeyserPlugin, GeyserPluginError, ReplicaAccountInfo, ReplicaAccountInfoVersions,
-        ReplicaTransactionInfoVersions, Result,
+        GeyserPlugin, GeyserPluginError, ReplicaAccountInfo, ReplicaAccountInfoV2,
+        ReplicaAccountInfoVersions, ReplicaTransactionInfoVersions, Result,
     },
     metrics::{Counter, Metrics},
     prelude::*,
-    selector::{AccountShim, CompiledInstructionShim},
+    selector::{AccountShim, AccountShimV2, CompiledInstructionShim},
     sender::Sender,
 };
 
@@ -51,6 +51,77 @@ impl Inner {
         f: impl FnOnce(Arc<Self>) -> F,
     ) {
         self.rt.spawn(f(Arc::clone(self)));
+    }
+
+    fn process_instructions<'a>(
+        self: &Arc<Self>,
+        instructions: impl IntoIterator<Item = (InstructionIndex, &'a CompiledInstruction)>,
+        keys: &AccountKeys,
+        slot: u64,
+        txn_signature: &[u8],
+    ) {
+        #[inline]
+        fn process_instruction(
+            sel: &InstructionSelector,
+            (index, ins): (InstructionIndex, &CompiledInstruction),
+            keys: &AccountKeys,
+            slot: u64,
+            txn_signature: &[u8],
+        ) -> anyhow::Result<Option<Message>> {
+            if !sel.is_selected(|i| keys.get(i as usize), &CompiledInstructionShim(ins))? {
+                return Ok(None);
+            }
+
+            let program = *keys
+                .get(ins.program_id_index as usize)
+                .ok_or_else(|| anyhow!("Couldn't get program ID for instruction"))?;
+
+            let accounts = ins
+                .accounts
+                .iter()
+                .map(|i| {
+                    keys.get(*i as usize).map_or_else(
+                        || Err(anyhow!("Couldn't get input account for instruction")),
+                        |k| Ok(*k),
+                    )
+                })
+                .collect::<StdResult<Vec<_>, _>>()?;
+
+            let data = ins.data.clone();
+
+            Ok(Some(Message::InstructionNotify(InstructionNotify {
+                program,
+                data,
+                accounts,
+                slot,
+                txn_signature: txn_signature.to_vec(),
+                index,
+            })))
+        }
+
+        let mut any_sent = false;
+        for ins in instructions {
+            match process_instruction(&self.ins_sel, ins, keys, slot, txn_signature) {
+                Ok(Some(m)) => {
+                    any_sent = true;
+                    self.spawn(|this| async move {
+                        this.producer.send(m).await;
+                        this.metrics.ins_sends.log(1);
+
+                        Ok(())
+                    });
+                },
+                Ok(None) => (),
+                Err(e) => {
+                    warn!("Error processing instruction: {:?}", e);
+                    self.metrics.errs.log(1);
+                },
+            }
+        }
+
+        if any_sent {
+            self.metrics.txn_sends.log(1);
+        }
     }
 }
 
@@ -216,7 +287,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
             |this| {
                 this.metrics.acct_recvs.log(1);
 
-                match account {
+                let update = match account {
                     ReplicaAccountInfoVersions::V0_0_1(acct) => {
                         if !this.acct_sel.is_selected(&AccountShim(acct), is_startup) {
                             return Ok(());
@@ -232,30 +303,55 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                             write_version,
                         } = *acct;
 
-                        let key = Pubkey::new_from_array(pubkey.try_into()?);
-                        let owner = Pubkey::new_from_array(owner.try_into()?);
-                        let data = data.to_owned();
+                        AccountUpdate {
+                            key: Pubkey::new_from_array(pubkey.try_into()?),
+                            lamports,
+                            owner: Pubkey::new_from_array(owner.try_into()?),
+                            executable,
+                            rent_epoch,
+                            data: data.to_owned(),
+                            write_version,
+                            slot,
+                            is_startup,
+                        }
+                    },
 
-                        this.spawn(|this| async move {
-                            this.producer
-                                .send(Message::AccountUpdate(AccountUpdate {
-                                    key,
-                                    lamports,
-                                    owner,
-                                    executable,
-                                    rent_epoch,
-                                    data,
-                                    write_version,
-                                    slot,
-                                    is_startup,
-                                }))
-                                .await;
-                            this.metrics.acct_sends.log(1);
+                    ReplicaAccountInfoVersions::V0_0_2(acct) => {
+                        if !this.acct_sel.is_selected(&AccountShimV2(acct), is_startup) {
+                            return Ok(());
+                        }
 
-                            Ok(())
-                        });
+                        let ReplicaAccountInfoV2 {
+                            pubkey,
+                            lamports,
+                            owner,
+                            executable,
+                            rent_epoch,
+                            data,
+                            write_version,
+                            txn_signature: _, // TODO: send this?
+                        } = *acct;
+
+                        AccountUpdate {
+                            key: Pubkey::new_from_array(pubkey.try_into()?),
+                            lamports,
+                            owner: Pubkey::new_from_array(owner.try_into()?),
+                            executable,
+                            rent_epoch,
+                            data: data.to_owned(),
+                            write_version,
+                            slot,
+                            is_startup,
+                        }
                     },
                 };
+
+                this.spawn(|this| async move {
+                    this.producer.send(Message::AccountUpdate(update)).await;
+                    this.metrics.acct_sends.log(1);
+
+                    Ok(())
+                });
 
                 Ok(())
             },
@@ -300,45 +396,6 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
         transaction: ReplicaTransactionInfoVersions,
         slot: u64,
     ) -> Result<()> {
-        #[inline]
-        fn process_instruction(
-            sel: &InstructionSelector,
-            (index, ins): (InstructionIndex, &CompiledInstruction),
-            keys: &AccountKeys,
-            slot: u64,
-            txn_signature: &[u8],
-        ) -> anyhow::Result<Option<Message>> {
-            if !sel.is_selected(|i| keys.get(i as usize), &CompiledInstructionShim(ins))? {
-                return Ok(None);
-            }
-
-            let program = *keys
-                .get(ins.program_id_index as usize)
-                .ok_or_else(|| anyhow!("Couldn't get program ID for instruction"))?;
-
-            let accounts = ins
-                .accounts
-                .iter()
-                .map(|i| {
-                    keys.get(*i as usize).map_or_else(
-                        || Err(anyhow!("Couldn't get input account for instruction")),
-                        |k| Ok(*k),
-                    )
-                })
-                .collect::<StdResult<Vec<_>, _>>()?;
-
-            let data = ins.data.clone();
-
-            Ok(Some(Message::InstructionNotify(InstructionNotify {
-                program,
-                data,
-                accounts,
-                slot,
-                txn_signature: txn_signature.to_vec(),
-                index,
-            })))
-        }
-
         self.with_inner(
             || GeyserPluginError::Custom(anyhow!(UNINIT).into()),
             |this| {
@@ -348,7 +405,7 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
 
                 match transaction {
                     ReplicaTransactionInfoVersions::V0_0_1(tx) => {
-                        if matches!(tx.transaction_status_meta.status, Err(..)) {
+                        if tx.transaction_status_meta.status.is_err() {
                             this.metrics.txn_errs.log(1);
                             return Ok(());
                         }
@@ -356,55 +413,56 @@ impl GeyserPlugin for GeyserPluginRabbitMq {
                         this.metrics.txn_recvs.log(1);
 
                         let msg = tx.transaction.message();
-                        let keys = msg.account_keys();
-
-                        let txn_signature = tx.signature.as_ref();
-
-                        let mut any_sent = false;
-                        for ins in msg
-                            .instructions()
-                            .iter()
-                            .enumerate()
-                            .map(|(i, ins)| (InstructionIndex::TopLevel(i), ins))
-                            .chain(
-                                tx.transaction_status_meta
-                                    .inner_instructions
-                                    .iter()
-                                    .flatten()
-                                    .flat_map(|ins| {
-                                        ins.instructions.iter().enumerate().map(|(i, inner)| {
-                                            (InstructionIndex::Inner(ins.index, i), inner)
-                                        })
-                                    }),
-                            )
-                        {
-                            match process_instruction(
-                                &this.ins_sel,
-                                ins,
-                                &keys,
-                                slot,
-                                txn_signature,
-                            ) {
-                                Ok(Some(m)) => {
-                                    any_sent = true;
-                                    this.spawn(|this| async move {
-                                        this.producer.send(m).await;
-                                        this.metrics.ins_sends.log(1);
-
-                                        Ok(())
-                                    });
-                                },
-                                Ok(None) => (),
-                                Err(e) => {
-                                    warn!("Error processing instruction: {:?}", e);
-                                    this.metrics.errs.log(1);
-                                },
-                            }
+                        this.process_instructions(
+                            msg.instructions()
+                                .iter()
+                                .enumerate()
+                                .map(|(i, ins)| (InstructionIndex::TopLevel(i), ins))
+                                .chain(
+                                    tx.transaction_status_meta
+                                        .inner_instructions
+                                        .iter()
+                                        .flatten()
+                                        .flat_map(|ins| {
+                                            ins.instructions.iter().enumerate().map(|(i, inner)| {
+                                                (InstructionIndex::Inner(ins.index, i), inner)
+                                            })
+                                        }),
+                                ),
+                            &msg.account_keys(),
+                            slot,
+                            tx.signature.as_ref(),
+                        );
+                    },
+                    ReplicaTransactionInfoVersions::V0_0_2(tx) => {
+                        if tx.transaction_status_meta.status.is_err() {
+                            this.metrics.txn_errs.log(1);
+                            return Ok(());
                         }
 
-                        if any_sent {
-                            this.metrics.txn_sends.log(1);
-                        }
+                        this.metrics.txn_recvs.log(1);
+
+                        let msg = tx.transaction.message();
+                        this.process_instructions(
+                            msg.instructions()
+                                .iter()
+                                .enumerate()
+                                .map(|(i, ins)| (InstructionIndex::TopLevel(i), ins))
+                                .chain(
+                                    tx.transaction_status_meta
+                                        .inner_instructions
+                                        .iter()
+                                        .flatten()
+                                        .flat_map(|ins| {
+                                            ins.instructions.iter().enumerate().map(|(i, inner)| {
+                                                (InstructionIndex::Inner(ins.index, i), inner)
+                                            })
+                                        }),
+                                ),
+                            &msg.account_keys(),
+                            slot,
+                            tx.signature.as_ref(),
+                        );
                     },
                 }
 

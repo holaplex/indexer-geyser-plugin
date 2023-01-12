@@ -21,7 +21,7 @@ serde = { version = "1.0.149", features = ["derive"] }
 thiserror = "1.0.37"
 
 # TODO: tighten the >=1.9 bounds once more things support 1.10
-solana-program = ">=1.9, <1.14"
+solana-program = ">=1.9, <1.15"
 spl-token = ">=3.2, <3.6"
 
 [dependencies.indexer-rabbitmq]

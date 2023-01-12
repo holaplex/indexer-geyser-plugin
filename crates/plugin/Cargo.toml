@@ -32,11 +32,11 @@ serde_with = "1.14.0"
 tokio-executor-trait = "2.1.0"
 tokio-reactor-trait = "1.1.0"
 
-solana-geyser-plugin-interface = "~1.13.5"
-solana-logger = "~1.13.5"
-solana-metrics = "~1.13.5"
-solana-program = "~1.13.5"
-solana-transaction-status = "~1.13.5"
+solana-geyser-plugin-interface = "~1.14.10"
+solana-logger = "~1.14.10"
+solana-metrics = "~1.14.10"
+solana-program = "~1.14.10"
+solana-transaction-status = "~1.14.10"
 spl-token = "3.5.0"
 
 [dependencies.tokio]
